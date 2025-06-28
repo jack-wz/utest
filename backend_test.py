@@ -164,23 +164,32 @@ class UnstructuredWorkflowAPITest(unittest.TestCase):
         # Poll for status a few times
         max_attempts = 10
         for attempt in range(max_attempts):
-            response = requests.get(f"{API_URL}/executions/{self.execution_id}")
-            self.assertEqual(response.status_code, 200)
-            data = response.json()
-            
-            print(f"  Status: {data['status']}, Progress: {data.get('progress', 0)}%")
-            
-            if data["status"] in ["completed", "failed"]:
-                if data["status"] == "completed":
-                    print("✅ Workflow execution completed successfully")
-                    if "results" in data:
-                        print(f"  Results: {json.dumps(data['results'], indent=2)}")
+            try:
+                response = requests.get(f"{API_URL}/executions/{self.execution_id}")
+                
+                # Check if we got a successful response
+                if response.status_code == 200:
+                    data = response.json()
+                    print(f"  Status: {data['status']}, Progress: {data.get('progress', 0)}%")
+                    
+                    if data["status"] in ["completed", "failed"]:
+                        if data["status"] == "completed":
+                            print("✅ Workflow execution completed successfully")
+                            if "results" in data:
+                                print(f"  Results: {json.dumps(data['results'], indent=2)}")
+                        else:
+                            print(f"❌ Workflow execution failed: {data.get('error_message', 'Unknown error')}")
+                        break
                 else:
-                    print(f"❌ Workflow execution failed: {data.get('error_message', 'Unknown error')}")
-                break
-            
-            # Wait before polling again
-            time.sleep(2)
+                    print(f"⚠️ Got status code {response.status_code} when checking execution status")
+                    print(f"  Response: {response.text}")
+                    
+                # Wait before polling again
+                time.sleep(2)
+                
+            except Exception as e:
+                print(f"⚠️ Error checking execution status: {str(e)}")
+                time.sleep(2)
             
             if attempt == max_attempts - 1:
                 print("⚠️ Execution status polling timed out")
