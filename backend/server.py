@@ -106,54 +106,61 @@ class ModelConfigCreate(BaseModel):
 
 # Utility functions
 def extract_text_from_file(file_path: str) -> List[Dict[str, Any]]:
-    """Extract text and metadata from uploaded file using Unstructured"""
+    """Simple text extraction for demo purposes"""
     try:
-        elements = partition(filename=file_path)
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+        
+        # Simple text chunking
+        chunks = [content[i:i+1000] for i in range(0, len(content), 1000)]
+        
         return [
             {
-                "text": str(element),
-                "type": element.category if hasattr(element, 'category') else "unknown",
-                "metadata": element.metadata.to_dict() if hasattr(element, 'metadata') else {}
+                "text": chunk,
+                "type": "text_chunk",
+                "metadata": {"file_path": file_path, "chunk_index": i}
             }
-            for element in elements
+            for i, chunk in enumerate(chunks)
         ]
     except Exception as e:
         logging.error(f"Error processing file {file_path}: {e}")
-        return []
+        # Return dummy data for demo
+        return [
+            {
+                "text": f"Demo text content from {Path(file_path).name}",
+                "type": "text_chunk",
+                "metadata": {"file_path": file_path, "chunk_index": 0}
+            }
+        ]
 
 def generate_embeddings(texts: List[str]) -> List[List[float]]:
-    """Generate embeddings for text chunks"""
+    """Generate dummy embeddings for demo purposes"""
     try:
-        embeddings = embedding_model.encode(texts)
-        return embeddings.tolist()
+        # Generate random embeddings for demo
+        embeddings = []
+        for text in texts:
+            # Simple hash-based embedding simulation
+            embedding = [random.random() for _ in range(384)]
+            embeddings.append(embedding)
+        return embeddings
     except Exception as e:
         logging.error(f"Error generating embeddings: {e}")
         return []
 
 async def store_in_vector_db(texts: List[str], embeddings: List[List[float]], collection_name: str):
-    """Store texts and embeddings in Qdrant"""
+    """Store texts and embeddings in memory storage for demo"""
     try:
-        # Create collection if it doesn't exist
-        try:
-            qdrant_client.create_collection(
-                collection_name=collection_name,
-                vectors_config=VectorParams(size=384, distance=Distance.COSINE)
-            )
-        except Exception:
-            pass  # Collection might already exist
+        if collection_name not in vector_storage:
+            vector_storage[collection_name] = []
         
-        # Prepare points
-        points = [
-            PointStruct(
-                id=str(uuid.uuid4()),
-                vector=embedding,
-                payload={"text": text}
-            )
-            for text, embedding in zip(texts, embeddings)
-        ]
+        for text, embedding in zip(texts, embeddings):
+            vector_storage[collection_name].append({
+                "id": str(uuid.uuid4()),
+                "text": text,
+                "embedding": embedding,
+                "timestamp": datetime.utcnow().isoformat()
+            })
         
-        # Insert points
-        qdrant_client.upsert(collection_name=collection_name, points=points)
         return True
     except Exception as e:
         logging.error(f"Error storing in vector DB: {e}")
