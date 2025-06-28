@@ -333,6 +333,9 @@ def run_tests():
         test_instance.test_06_get_workflow()
         test_instance.test_07_execute_workflow()
         test_instance.test_08_get_execution_status()
+        test_instance.test_09_nonexistent_workflow()
+        test_instance.test_10_nonexistent_execution()
+        test_instance.test_11_full_workflow_cycle()
         print("\n===== ALL TESTS COMPLETED =====")
     finally:
         test_instance.tearDown()
