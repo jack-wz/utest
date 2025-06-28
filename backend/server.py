@@ -360,8 +360,14 @@ async def get_model_configs():
 @api_router.get("/health/vector-db")
 async def check_vector_db():
     try:
-        collections = qdrant_client.get_collections()
-        return {"status": "healthy", "collections": len(collections.collections)}
+        collections_count = len(vector_storage.keys())
+        total_documents = sum(len(docs) for docs in vector_storage.values())
+        return {
+            "status": "healthy", 
+            "collections": collections_count,
+            "total_documents": total_documents,
+            "storage_type": "in-memory"
+        }
     except Exception as e:
         return {"status": "unhealthy", "error": str(e)}
 
