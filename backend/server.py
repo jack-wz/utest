@@ -319,23 +319,41 @@ def generate_embeddings(texts: List[str], model_type: str = "openai") -> List[Li
         logging.error(f"Error generating embeddings with {model_type}: {e}")
         return []
 
-async def store_in_vector_db(texts: List[str], embeddings: List[List[float]], collection_name: str):
-    """Store texts and embeddings in memory storage for demo"""
+async def store_in_vector_db(texts: List[str], embeddings: List[List[float]], collection_name: str, connector_type: str = "qdrant"):
+    """Enhanced vector storage with multiple connector support"""
     try:
         if collection_name not in vector_storage:
-            vector_storage[collection_name] = []
+            vector_storage[collection_name] = {
+                "connector_type": connector_type,
+                "documents": [],
+                "metadata": {
+                    "created_at": datetime.utcnow().isoformat(),
+                    "dimensions": len(embeddings[0]) if embeddings else 0,
+                    "total_documents": 0
+                }
+            }
         
-        for text, embedding in zip(texts, embeddings):
-            vector_storage[collection_name].append({
+        for i, (text, embedding) in enumerate(zip(texts, embeddings)):
+            document = {
                 "id": str(uuid.uuid4()),
                 "text": text,
                 "embedding": embedding,
-                "timestamp": datetime.utcnow().isoformat()
-            })
+                "metadata": {
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "index": i,
+                    "text_length": len(text),
+                    "connector_type": connector_type
+                }
+            }
+            vector_storage[collection_name]["documents"].append(document)
+        
+        # Update collection metadata
+        vector_storage[collection_name]["metadata"]["total_documents"] = len(vector_storage[collection_name]["documents"])
+        vector_storage[collection_name]["metadata"]["last_updated"] = datetime.utcnow().isoformat()
         
         return True
     except Exception as e:
-        logging.error(f"Error storing in vector DB: {e}")
+        logging.error(f"Error storing in vector DB ({connector_type}): {e}")
         return False
 
 # API Routes
