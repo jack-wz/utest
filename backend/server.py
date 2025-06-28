@@ -248,6 +248,11 @@ async def get_execution_status(execution_id: str):
     execution = await db.executions.find_one({"id": execution_id})
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
+    
+    # Remove MongoDB's ObjectId to avoid serialization issues
+    if "_id" in execution:
+        del execution["_id"]
+    
     return execution
 
 async def process_workflow(execution_id: str, workflow_id: str):
