@@ -165,7 +165,7 @@ class UnstructuredWorkflowAPITest(unittest.TestCase):
         print(f"\n🔍 Testing execution status for ID: {self.execution_id}...")
         
         # Poll for status a few times
-        max_attempts = 10
+        max_attempts = 15
         for attempt in range(max_attempts):
             try:
                 response = requests.get(f"{API_URL}/executions/{self.execution_id}")
@@ -196,6 +196,127 @@ class UnstructuredWorkflowAPITest(unittest.TestCase):
             
             if attempt == max_attempts - 1:
                 print("⚠️ Execution status polling timed out")
+    
+    def test_09_nonexistent_workflow(self):
+        """Test getting a non-existent workflow"""
+        print("\n🔍 Testing get non-existent workflow...")
+        fake_id = "00000000-0000-0000-0000-000000000000"
+        response = requests.get(f"{API_URL}/workflows/{fake_id}")
+        self.assertEqual(response.status_code, 404)
+        print("✅ Non-existent workflow test passed")
+    
+    def test_10_nonexistent_execution(self):
+        """Test getting a non-existent execution"""
+        print("\n🔍 Testing get non-existent execution...")
+        fake_id = "00000000-0000-0000-0000-000000000000"
+        response = requests.get(f"{API_URL}/executions/{fake_id}")
+        self.assertEqual(response.status_code, 404)
+        print("✅ Non-existent execution test passed")
+    
+    def test_11_full_workflow_cycle(self):
+        """Test a complete workflow cycle with proper error handling"""
+        print("\n🔍 Testing complete workflow cycle with error handling...")
+        
+        # 1. Upload a file
+        with open(self.test_file_path, "rb") as f:
+            files = {"file": (self.test_file_path.name, f)}
+            response = requests.post(f"{API_URL}/upload", files=files)
+        
+        self.assertEqual(response.status_code, 200)
+        file_data = response.json()
+        file_path = file_data["file_path"]
+        
+        # 2. Create a workflow
+        workflow_data = {
+            "name": "Complete Test Workflow",
+            "description": "Testing full cycle with error handling",
+            "nodes": [
+                {
+                    "id": "1",
+                    "type": "datasource",
+                    "position": {"x": 100, "y": 100},
+                    "data": {
+                        "source_type": "upload",
+                        "filename": self.test_file_path.name,
+                        "file_path": file_path
+                    }
+                },
+                {
+                    "id": "2",
+                    "type": "processor",
+                    "position": {"x": 400, "y": 100},
+                    "data": {
+                        "processor_type": "unstructured"
+                    }
+                },
+                {
+                    "id": "3",
+                    "type": "model",
+                    "position": {"x": 700, "y": 100},
+                    "data": {
+                        "model_type": "embedding",
+                        "model_name": "SentenceTransformer"
+                    }
+                },
+                {
+                    "id": "4",
+                    "type": "export",
+                    "position": {"x": 1000, "y": 100},
+                    "data": {
+                        "export_type": "vector_db"
+                    }
+                }
+            ],
+            "edges": [
+                {"id": "e1-2", "source": "1", "target": "2"},
+                {"id": "e2-3", "source": "2", "target": "3"},
+                {"id": "e3-4", "source": "3", "target": "4"}
+            ]
+        }
+        
+        response = requests.post(f"{API_URL}/workflows", json=workflow_data)
+        self.assertEqual(response.status_code, 200)
+        workflow = response.json()
+        workflow_id = workflow["id"]
+        
+        # 3. Execute the workflow
+        response = requests.post(f"{API_URL}/workflows/{workflow_id}/execute")
+        self.assertEqual(response.status_code, 200)
+        execution_data = response.json()
+        execution_id = execution_data["execution_id"]
+        
+        # 4. Poll for completion
+        start_time = time.time()
+        completed = False
+        
+        while time.time() - start_time < TEST_TIMEOUT:
+            response = requests.get(f"{API_URL}/executions/{execution_id}")
+            
+            if response.status_code != 200:
+                print(f"⚠️ Error response: {response.status_code} - {response.text}")
+                break
+                
+            status_data = response.json()
+            status = status_data.get("status")
+            progress = status_data.get("progress", 0)
+            
+            print(f"  Status: {status}, Progress: {progress}%")
+            
+            if status == "completed":
+                completed = True
+                print("✅ Full workflow cycle completed successfully")
+                print(f"  Results: {json.dumps(status_data.get('results', {}), indent=2)}")
+                break
+            elif status == "failed":
+                print(f"❌ Workflow execution failed: {status_data.get('error_message', 'Unknown error')}")
+                break
+                
+            time.sleep(2)
+            
+        if not completed:
+            print("⚠️ Workflow execution timed out")
+            
+        self.assertTrue(completed, "Workflow should complete within the timeout period")
 
 def run_tests():
     """Run all tests sequentially in a single test instance"""
