@@ -202,6 +202,9 @@ async def update_workflow(workflow_id: str, workflow: WorkflowCreate):
         raise HTTPException(status_code=404, detail="Workflow not found")
     
     updated_workflow = await db.workflows.find_one({"id": workflow_id})
+    # Remove MongoDB ObjectId
+    if "_id" in updated_workflow:
+        del updated_workflow["_id"]
     return Workflow(**updated_workflow)
 
 # File Upload
