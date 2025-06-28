@@ -1,38 +1,100 @@
-.App {
-    text-align: center;
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Custom ReactFlow styles */
+.react-flow__node {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+.react-flow__handle {
+  background: #6b7280;
+  border: 2px solid #374151;
+  width: 8px;
+  height: 8px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
+.react-flow__handle-left {
+  left: -4px;
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+.react-flow__handle-right {
+  right: -4px;
 }
 
-.App-link {
-    color: #61dafb;
+.react-flow__edge-path {
+  stroke: #6b7280;
+  stroke-width: 2;
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #3b82f6;
+}
+
+.react-flow__controls {
+  button {
+    @apply bg-white border border-gray-300 text-gray-700 hover:bg-gray-50;
+  }
+}
+
+.react-flow__minimap {
+  @apply bg-white border border-gray-300 rounded-lg;
+}
+
+/* Custom node animations */
+.react-flow__node {
+  transition: all 0.2s ease;
+}
+
+.react-flow__node:hover {
+  transform: scale(1.02);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.react-flow__node.selected {
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
+/* Custom file input styling */
+input[type="file"] {
+  @apply text-xs p-1 border border-gray-300 rounded bg-white;
+}
+
+/* Loading states */
+.loading-spinner {
+  @apply animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600;
+}
+
+/* Toast customization */
+.Toastify__toast {
+  @apply rounded-lg;
+}
+
+.Toastify__toast--success {
+  @apply bg-green-50 text-green-800 border border-green-200;
+}
+
+.Toastify__toast--error {
+  @apply bg-red-50 text-red-800 border border-red-200;
+}
+
+.Toastify__toast--info {
+  @apply bg-blue-50 text-blue-800 border border-blue-200;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400;
 }
