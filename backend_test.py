@@ -186,19 +186,23 @@ class UnstructuredWorkflowAPITest(unittest.TestCase):
                 print("⚠️ Execution status polling timed out")
 
 def run_tests():
-    """Run all tests in order"""
-    test_suite = unittest.TestSuite()
-    test_suite.addTest(UnstructuredWorkflowAPITest('test_01_api_root'))
-    test_suite.addTest(UnstructuredWorkflowAPITest('test_02_vector_db_health'))
-    test_suite.addTest(UnstructuredWorkflowAPITest('test_03_file_upload'))
-    test_suite.addTest(UnstructuredWorkflowAPITest('test_04_create_workflow'))
-    test_suite.addTest(UnstructuredWorkflowAPITest('test_05_get_workflows'))
-    test_suite.addTest(UnstructuredWorkflowAPITest('test_06_get_workflow'))
-    test_suite.addTest(UnstructuredWorkflowAPITest('test_07_execute_workflow'))
-    test_suite.addTest(UnstructuredWorkflowAPITest('test_08_get_execution_status'))
+    """Run all tests sequentially in a single test instance"""
+    test_instance = UnstructuredWorkflowAPITest()
+    test_instance.setUp()
     
-    runner = unittest.TextTestRunner(verbosity=2)
-    runner.run(test_suite)
+    try:
+        print("\n===== STARTING API TESTS =====")
+        test_instance.test_01_api_root()
+        test_instance.test_02_vector_db_health()
+        test_instance.test_03_file_upload()
+        test_instance.test_04_create_workflow()
+        test_instance.test_05_get_workflows()
+        test_instance.test_06_get_workflow()
+        test_instance.test_07_execute_workflow()
+        test_instance.test_08_get_execution_status()
+        print("\n===== ALL TESTS COMPLETED =====")
+    finally:
+        test_instance.tearDown()
 
 if __name__ == "__main__":
     run_tests()
