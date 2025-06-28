@@ -366,6 +366,10 @@ async def create_model_config(model: ModelConfigCreate):
 @api_router.get("/models", response_model=List[ModelConfig])
 async def get_model_configs():
     models = await db.models.find().to_list(1000)
+    # Remove MongoDB ObjectId from each model
+    for model in models:
+        if "_id" in model:
+            del model["_id"]
     return [ModelConfig(**model) for model in models]
 
 # Health check for vector database
