@@ -29,8 +29,8 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Initialize Qdrant client (local instance)
-qdrant_client = QdrantClient(host="localhost", port=6333)
+# Initialize Qdrant client (memory mode for development)
+qdrant_client = QdrantClient(":memory:")
 
 # Initialize embedding model
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
