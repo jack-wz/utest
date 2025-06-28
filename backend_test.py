@@ -9,6 +9,9 @@ from pathlib import Path
 BACKEND_URL = "https://11b5d20f-d4ca-47d6-b84e-9550a6852d1d.preview.emergentagent.com"
 API_URL = f"{BACKEND_URL}/api"
 
+# Test constants
+TEST_TIMEOUT = 30  # seconds to wait for workflow execution
+
 class UnstructuredWorkflowAPITest(unittest.TestCase):
     """Test suite for the Unstructured Workflow API"""
     
