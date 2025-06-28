@@ -172,6 +172,10 @@ async def create_workflow(workflow: WorkflowCreate):
 @api_router.get("/workflows", response_model=List[Workflow])
 async def get_workflows():
     workflows = await db.workflows.find().to_list(1000)
+    # Remove MongoDB ObjectId from each workflow
+    for workflow in workflows:
+        if "_id" in workflow:
+            del workflow["_id"]
     return [Workflow(**workflow) for workflow in workflows]
 
 @api_router.get("/workflows/{workflow_id}", response_model=Workflow)
@@ -179,6 +183,9 @@ async def get_workflow(workflow_id: str):
     workflow = await db.workflows.find_one({"id": workflow_id})
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
+    # Remove MongoDB ObjectId
+    if "_id" in workflow:
+        del workflow["_id"]
     return Workflow(**workflow)
 
 @api_router.put("/workflows/{workflow_id}", response_model=Workflow)
