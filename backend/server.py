@@ -223,8 +223,14 @@ async def upload_file(file: UploadFile = File(...)):
             content = await file.read()
             await f.write(content)
         
-        # Detect file type
-        file_type = magic.from_file(str(file_path), mime=True)
+        # Simple file type detection
+        file_type = "text/plain"
+        if file_extension.lower() in ['.pdf']:
+            file_type = "application/pdf"
+        elif file_extension.lower() in ['.docx']:
+            file_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        elif file_extension.lower() in ['.txt', '.md']:
+            file_type = "text/plain"
         
         return {
             "file_id": file_id,
