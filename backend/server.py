@@ -20,6 +20,8 @@ from sentence_transformers import SentenceTransformer
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import shutil
+import random
+import time
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -47,6 +49,9 @@ api_router = APIRouter(prefix="/api")
 # Ensure upload directory exists
 UPLOAD_DIR = Path("/tmp/uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
+
+# In-memory storage for demo (replace with real vector DB later)
+vector_storage = {}
 
 # Data Models
 class WorkflowNode(BaseModel):
