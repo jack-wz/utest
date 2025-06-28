@@ -280,18 +280,43 @@ def chunk_elements(elements: List[Dict[str, Any]], strategy: str = "by_title", c
     
     return chunks
 
-def generate_embeddings(texts: List[str]) -> List[List[float]]:
-    """Generate dummy embeddings for demo purposes"""
+def generate_embeddings(texts: List[str], model_type: str = "openai") -> List[List[float]]:
+    """Generate embeddings with different model support"""
     try:
-        # Generate random embeddings for demo
         embeddings = []
+        
+        # Different embedding models simulation
+        if model_type == "openai":
+            dimensions = 1536
+        elif model_type == "bedrock":
+            dimensions = 1024
+        elif model_type == "sentence_transformers":
+            dimensions = 384
+        else:
+            dimensions = 768
+        
         for text in texts:
-            # Simple hash-based embedding simulation
-            embedding = [random.random() for _ in range(384)]
+            # Generate deterministic embeddings based on text hash for consistency
+            import hashlib
+            text_hash = hashlib.md5(text.encode()).hexdigest()
+            
+            # Create embedding based on hash for consistency
+            embedding = []
+            for i in range(dimensions):
+                # Use hash and index to create deterministic values
+                hash_val = int(text_hash[i % len(text_hash)], 16)
+                embedding.append((hash_val + i) / (16 + dimensions) - 0.5)
+            
+            # Normalize to unit vector
+            magnitude = sum(x*x for x in embedding) ** 0.5
+            if magnitude > 0:
+                embedding = [x/magnitude for x in embedding]
+            
             embeddings.append(embedding)
+        
         return embeddings
     except Exception as e:
-        logging.error(f"Error generating embeddings: {e}")
+        logging.error(f"Error generating embeddings with {model_type}: {e}")
         return []
 
 async def store_in_vector_db(texts: List[str], embeddings: List[List[float]], collection_name: str):
