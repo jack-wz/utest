@@ -467,12 +467,12 @@ async def get_execution_status(execution_id: str):
     return execution
 
 async def process_workflow(execution_id: str, workflow_id: str):
-    """Background task to process workflow"""
+    """Enhanced background task to process workflow with real Unstructured pipeline"""
     try:
         # Update status to running
         await db.executions.update_one(
             {"id": execution_id},
-            {"$set": {"status": "running", "progress": 10}}
+            {"$set": {"status": "running", "progress": 5}}
         )
         
         # Get workflow
@@ -482,58 +482,157 @@ async def process_workflow(execution_id: str, workflow_id: str):
         
         workflow_obj = Workflow(**workflow)
         
-        # Simple execution logic for MVP
-        results = {}
+        # Enhanced execution logic following Unstructured pipeline
+        results = {
+            "pipeline_stages": [],
+            "processing_details": {},
+            "performance_metrics": {}
+        }
         
-        # Find data source nodes
+        start_time = time.time()
+        
+        # Stage 1: Data Source Processing
         datasource_nodes = [node for node in workflow_obj.nodes if node.type == "datasource"]
-        processor_nodes = [node for node in workflow_obj.nodes if node.type == "processor"]
-        export_nodes = [node for node in workflow_obj.nodes if node.type == "export"]
+        all_documents = []
         
-        # Process data sources
-        all_texts = []
         for node in datasource_nodes:
             if node.data.get("source_type") == "upload" and node.data.get("file_path"):
                 file_path = node.data["file_path"]
+                processing_strategy = node.data.get("processing_strategy", "auto")
+                
                 if Path(file_path).exists():
-                    texts = await asyncio.get_event_loop().run_in_executor(
-                        executor, extract_text_from_file, file_path
+                    # Extract with specified strategy
+                    elements = await asyncio.get_event_loop().run_in_executor(
+                        executor, extract_text_from_file, file_path, processing_strategy
                     )
-                    all_texts.extend([item["text"] for item in texts])
-                else:
-                    # Add demo data if file doesn't exist
-                    all_texts.append(f"Demo processed content from {node.data.get('filename', 'uploaded file')}")
-        
-        # Add some demo processing delay
-        await asyncio.sleep(2)
+                    all_documents.extend(elements)
+                    
+                    results["pipeline_stages"].append({
+                        "stage": "document_partitioning",
+                        "strategy": processing_strategy,
+                        "elements_extracted": len(elements),
+                        "file_processed": Path(file_path).name
+                    })
         
         await db.executions.update_one(
             {"id": execution_id},
-            {"$set": {"progress": 50}}
+            {"$set": {"progress": 25}}
         )
         
-        # Process with embeddings if needed
-        if all_texts and any(node.data.get("export_type") == "vector_db" for node in export_nodes):
-            embeddings = await asyncio.get_event_loop().run_in_executor(
-                executor, generate_embeddings, all_texts
+        # Stage 2: Cleaning (if cleaning node exists)
+        cleaning_nodes = [node for node in workflow_obj.nodes if node.type == "cleaning"]
+        if cleaning_nodes and all_documents:
+            cleaned_documents = await asyncio.get_event_loop().run_in_executor(
+                executor, clean_extracted_elements, all_documents
+            )
+            all_documents = cleaned_documents
+            
+            results["pipeline_stages"].append({
+                "stage": "document_cleaning",
+                "elements_before": len(all_documents),
+                "elements_after": len(cleaned_documents),
+                "cleaning_applied": True
+            })
+        
+        await db.executions.update_one(
+            {"id": execution_id},
+            {"$set": {"progress": 40}}
+        )
+        
+        # Stage 3: Chunking (if chunking node exists)
+        chunking_nodes = [node for node in workflow_obj.nodes if node.type == "chunking"]
+        chunks = []
+        
+        if chunking_nodes and all_documents:
+            chunking_node = chunking_nodes[0]
+            chunk_strategy = chunking_node.data.get("chunk_strategy", "by_title")
+            chunk_size = chunking_node.data.get("chunk_size", 1000)
+            
+            chunks = await asyncio.get_event_loop().run_in_executor(
+                executor, chunk_elements, all_documents, chunk_strategy, chunk_size
             )
             
-            # Store in vector database
-            collection_name = f"workflow_{workflow_id}"
-            success = await store_in_vector_db(all_texts, embeddings, collection_name)
+            results["pipeline_stages"].append({
+                "stage": "intelligent_chunking",
+                "strategy": chunk_strategy,
+                "chunk_size": chunk_size,
+                "chunks_created": len(chunks),
+                "original_elements": len(all_documents)
+            })
+        else:
+            # Convert documents to chunks if no chunking node
+            chunks = [{"text": doc["text"], "metadata": doc["metadata"]} for doc in all_documents]
+        
+        await db.executions.update_one(
+            {"id": execution_id},
+            {"$set": {"progress": 60}}
+        )
+        
+        # Stage 4: Embedding Generation (if embedding node exists)
+        embedding_nodes = [node for node in workflow_obj.nodes if node.type == "embedding"]
+        embeddings = []
+        
+        if embedding_nodes and chunks:
+            embedding_node = embedding_nodes[0]
+            model_type = embedding_node.data.get("model_type", "openai")
             
-            results["vector_storage"] = {
-                "success": success,
-                "collection": collection_name,
-                "documents_stored": len(all_texts)
-            }
+            texts = [chunk["text"] for chunk in chunks]
+            embeddings = await asyncio.get_event_loop().run_in_executor(
+                executor, generate_embeddings, texts, model_type
+            )
+            
+            results["pipeline_stages"].append({
+                "stage": "embedding_generation",
+                "model_type": model_type,
+                "embeddings_generated": len(embeddings),
+                "vector_dimensions": len(embeddings[0]) if embeddings else 0
+            })
         
-        results["texts_processed"] = len(all_texts)
-        results["processing_summary"] = f"Successfully processed {len(all_texts)} text chunks using Unstructured workflow"
-        results["demo_note"] = "This is a demo implementation showing the workflow execution flow"
+        await db.executions.update_one(
+            {"id": execution_id},
+            {"$set": {"progress": 80}}
+        )
         
-        # Add processing delay for realism
-        await asyncio.sleep(2)
+        # Stage 5: Vector Storage (if connector node exists)
+        connector_nodes = [node for node in workflow_obj.nodes if node.type == "connector"]
+        
+        if connector_nodes and chunks and embeddings:
+            connector_node = connector_nodes[0]
+            connector_type = connector_node.data.get("connector_type", "qdrant")
+            
+            texts = [chunk["text"] for chunk in chunks]
+            collection_name = f"workflow_{workflow_id}"
+            
+            success = await store_in_vector_db(texts, embeddings, collection_name, connector_type)
+            
+            results["pipeline_stages"].append({
+                "stage": "vector_storage",
+                "connector_type": connector_type,
+                "collection_name": collection_name,
+                "documents_stored": len(texts),
+                "storage_success": success
+            })
+        
+        # Calculate performance metrics
+        end_time = time.time()
+        processing_time = end_time - start_time
+        
+        results["performance_metrics"] = {
+            "total_processing_time": round(processing_time, 2),
+            "documents_processed": len(all_documents),
+            "chunks_created": len(chunks),
+            "embeddings_generated": len(embeddings),
+            "throughput_docs_per_second": round(len(all_documents) / processing_time, 2) if processing_time > 0 else 0
+        }
+        
+        results["processing_details"] = {
+            "total_elements": len(all_documents),
+            "total_chunks": len(chunks),
+            "total_embeddings": len(embeddings),
+            "pipeline_completed": True,
+            "unstructured_version": "0.15.13",
+            "processing_summary": f"Successfully processed {len(all_documents)} elements through {len(results['pipeline_stages'])} pipeline stages"
+        }
         
         # Update completion
         await db.executions.update_one(
