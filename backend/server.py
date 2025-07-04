@@ -42,12 +42,75 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 # In-memory storage for demo (replace with real vector DB later)
 vector_storage = {}
 
-# Data Models
+# Enhanced Data Models for enterprise features
 class WorkflowNode(BaseModel):
     id: str
-    type: str  # "datasource", "processor", "model", "export"
+    type: str  # "datasource", "llm", "vision", "chunking", "embedding", "connector"
     position: Dict[str, float]
     data: Dict[str, Any]
+
+class DataSourceConfig(BaseModel):
+    source_type: str = "upload"  # upload, feishu, wechat_work, s3, api, database
+    processing_strategy: str = "auto"  # auto, hi_res, fast, ocr_only
+    batch_processing: bool = False
+    batch_size: int = 10
+    # Feishu specific
+    feishu_app_id: Optional[str] = None
+    feishu_app_secret: Optional[str] = None
+    feishu_scope: str = "all"
+    # WeChat Work specific
+    corp_id: Optional[str] = None
+    corp_secret: Optional[str] = None
+    # API specific
+    api_endpoint: Optional[str] = None
+    auth_type: str = "none"
+    auth_credentials: Optional[str] = None
+
+class LLMConfig(BaseModel):
+    llm_provider: str = "openai"  # openai, anthropic, azure, ollama, qwen, baidu
+    model_name: str = "gpt-4"
+    api_key: Optional[str] = None
+    max_tokens: int = 4000
+    temperature: float = 0.7
+    task_type: str = "summarize"  # summarize, extract, translate, classify, qa, custom
+    custom_prompt: Optional[str] = None
+
+class VisionConfig(BaseModel):
+    vision_provider: str = "openai"  # openai, anthropic, google, azure, local
+    ocr_enabled: bool = True
+    layout_detection: bool = False
+    table_extraction: bool = False
+    image_description: bool = False
+    image_quality: str = "high"  # low, medium, high
+    ocr_language: str = "auto"  # auto, zh, en, ja, ko
+
+class ChunkingConfig(BaseModel):
+    chunk_strategy: str = "by_title"  # by_title, by_page, by_similarity, fixed_size, recursive
+    chunk_size: int = 1000
+    chunk_overlap: int = 200
+    context_merge: bool = False
+    preserve_structure: bool = False
+    smart_boundary: bool = False
+    merge_window: int = 3
+
+class EmbeddingConfig(BaseModel):
+    embedding_provider: str = "openai"  # openai, azure, cohere, huggingface, sentence_transformers, local
+    embedding_model: str = "text-embedding-ada-002"
+    dimensions: int = 1536
+    batch_size: int = 32
+    normalize_text: bool = False
+    remove_stopwords: bool = False
+    lowercase: bool = False
+
+class ConnectorConfig(BaseModel):
+    connector_type: str = "qdrant"  # qdrant, pinecone, weaviate, chroma, elasticsearch, mongodb
+    connection_url: Optional[str] = None
+    api_key: Optional[str] = None
+    collection_name: str = "documents"
+    batch_size: int = 100
+    metadata_fields: Optional[str] = None
+    auto_create_index: bool = False
+    update_existing: bool = False
 
 class WorkflowEdge(BaseModel):
     id: str
