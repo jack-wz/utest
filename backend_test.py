@@ -12,6 +12,64 @@ API_URL = f"{BACKEND_URL}/api"
 # Test constants
 TEST_TIMEOUT = 30  # seconds to wait for workflow execution
 
+# Enterprise feature test data
+FEISHU_CONFIG = {
+    "source_type": "feishu",
+    "feishu_app_id": "cli_test123456",
+    "feishu_app_secret": "test_secret_key",
+    "feishu_scope": "all"
+}
+
+WECHAT_WORK_CONFIG = {
+    "source_type": "wechat_work",
+    "corp_id": "ww1234567890abcdef",
+    "corp_secret": "test_corp_secret"
+}
+
+LLM_CONFIG = {
+    "llm_provider": "openai",
+    "model_name": "gpt-4",
+    "api_key": "sk-test12345",
+    "max_tokens": 4000,
+    "temperature": 0.7,
+    "task_type": "summarize"
+}
+
+VISION_CONFIG = {
+    "vision_provider": "openai",
+    "ocr_enabled": True,
+    "layout_detection": True,
+    "table_extraction": True,
+    "image_description": True,
+    "image_quality": "high",
+    "ocr_language": "auto"
+}
+
+CHUNKING_CONFIG = {
+    "chunk_strategy": "by_title",
+    "chunk_size": 1000,
+    "chunk_overlap": 200,
+    "context_merge": True,
+    "preserve_structure": True,
+    "smart_boundary": True
+}
+
+EMBEDDING_CONFIG = {
+    "embedding_provider": "openai",
+    "embedding_model": "text-embedding-ada-002",
+    "dimensions": 1536,
+    "batch_size": 32
+}
+
+CONNECTOR_CONFIG = {
+    "connector_type": "qdrant",
+    "connection_url": "http://localhost:6333",
+    "api_key": "test_api_key",
+    "collection_name": "test_documents",
+    "batch_size": 100,
+    "auto_create_index": True
+}
+
 class UnstructuredWorkflowAPITest(unittest.TestCase):
     """Test suite for the Unstructured Workflow API"""
     
