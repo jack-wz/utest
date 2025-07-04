@@ -32,241 +32,955 @@ import {
   ArrowPathIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
-  ClockIcon
+  ClockIcon,
+  XMarkIcon,
+  AdjustmentsHorizontalIcon,
+  BoltIcon,
+  GlobeAltIcon,
+  ChatBubbleBottomCenterTextIcon,
+  CpuChipIcon,
+  ServerIcon,
+  FolderIcon
 } from '@heroicons/react/24/outline';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-// Enhanced Custom Node Components with more details
-const DataSourceNode = ({ data, id }) => (
-  <div className="px-4 py-3 shadow-lg rounded-lg bg-blue-50 border-2 border-blue-200 min-w-56">
-    <Handle type="source" position={Position.Right} className="w-3 h-3" />
-    <div className="flex items-center gap-2 mb-2">
-      <CloudArrowUpIcon className="h-5 w-5 text-blue-600" />
-      <div className="font-bold text-blue-900">数据源</div>
-    </div>
-    <div className="text-sm text-gray-600 space-y-1">
-      <div><strong>类型:</strong> {data.source_type || '文件上传'}</div>
-      <div><strong>格式:</strong> PDF, DOCX, HTML, EML, PPTX, TXT, MD</div>
-      {data.filename && <div><strong>文件:</strong> {data.filename}</div>}
-      {data.processing_strategy && <div><strong>策略:</strong> {data.processing_strategy}</div>}
-    </div>
-    <div className="mt-3">
-      <input
-        type="file"
-        onChange={(e) => data.onFileUpload && data.onFileUpload(e, id)}
-        className="text-xs w-full p-1 border rounded"
-        accept=".pdf,.docx,.txt,.md,.html,.eml,.pptx"
-      />
-    </div>
-    <div className="mt-2">
-      <select 
-        className="text-xs w-full p-1 border rounded"
-        onChange={(e) => data.onStrategyChange && data.onStrategyChange(e.target.value, id)}
-        defaultValue={data.processing_strategy || 'auto'}
-      >
-        <option value="auto">AUTO - 智能检测</option>
-        <option value="hi_res">HI_RES - 高精度布局</option>
-        <option value="fast">FAST - 快速提取</option>
-        <option value="ocr_only">OCR_ONLY - 纯OCR</option>
-      </select>
-    </div>
-  </div>
-);
+// 节点配置弹窗组件
+const NodeConfigModal = ({ node, isOpen, onClose, onSave }) => {
+  const [config, setConfig] = useState(node?.data || {});
 
-const PartitionNode = ({ data }) => (
-  <div className="px-4 py-3 shadow-lg rounded-lg bg-green-50 border-2 border-green-200 min-w-56">
-    <Handle type="target" position={Position.Left} className="w-3 h-3" />
-    <Handle type="source" position={Position.Right} className="w-3 h-3" />
-    <div className="flex items-center gap-2 mb-2">
-      <DocumentDuplicateIcon className="h-5 w-5 text-green-600" />
-      <div className="font-bold text-green-900">文档分割</div>
-    </div>
-    <div className="text-sm text-gray-600 space-y-1">
-      <div><strong>功能:</strong> 智能语义分割</div>
-      <div><strong>元素类型:</strong></div>
-      <div className="grid grid-cols-2 gap-1 text-xs">
-        <span className="bg-green-100 px-1 rounded">Title</span>
-        <span className="bg-green-100 px-1 rounded">Text</span>
-        <span className="bg-green-100 px-1 rounded">Table</span>
-        <span className="bg-green-100 px-1 rounded">List</span>
-        <span className="bg-green-100 px-1 rounded">Image</span>
-        <span className="bg-green-100 px-1 rounded">Header</span>
+  useEffect(() => {
+    if (node) {
+      setConfig(node.data);
+    }
+  }, [node]);
+
+  if (!isOpen || !node) return null;
+
+  const handleSave = () => {
+    onSave(node.id, config);
+    onClose();
+  };
+
+  const renderConfigForm = () => {
+    switch (node.type) {
+      case 'datasource':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">数据源类型</label>
+              <select 
+                value={config.source_type || 'upload'}
+                onChange={(e) => setConfig({...config, source_type: e.target.value})}
+                className="w-full p-2 border rounded-lg"
+              >
+                <option value="upload">文件上传</option>
+                <option value="feishu">飞书文档</option>
+                <option value="wechat_work">企业微信</option>
+                <option value="s3">S3/MinIO</option>
+                <option value="api">API接口</option>
+                <option value="database">数据库</option>
+              </select>
+            </div>
+
+            {config.source_type === 'feishu' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">App ID</label>
+                  <input 
+                    type="text" 
+                    value={config.feishu_app_id || ''}
+                    onChange={(e) => setConfig({...config, feishu_app_id: e.target.value})}
+                    className="w-full p-2 border rounded-lg"
+                    placeholder="cli_xxxxxxxxxxxxxxxx"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">App Secret</label>
+                  <input 
+                    type="password" 
+                    value={config.feishu_app_secret || ''}
+                    onChange={(e) => setConfig({...config, feishu_app_secret: e.target.value})}
+                    className="w-full p-2 border rounded-lg"
+                    placeholder="应用密钥"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">文档范围</label>
+                  <select 
+                    value={config.feishu_scope || 'all'}
+                    onChange={(e) => setConfig({...config, feishu_scope: e.target.value})}
+                    className="w-full p-2 border rounded-lg"
+                  >
+                    <option value="all">所有文档</option>
+                    <option value="folder">指定文件夹</option>
+                    <option value="doc">单个文档</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {config.source_type === 'wechat_work' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">企业ID</label>
+                  <input 
+                    type="text" 
+                    value={config.corp_id || ''}
+                    onChange={(e) => setConfig({...config, corp_id: e.target.value})}
+                    className="w-full p-2 border rounded-lg"
+                    placeholder="wwxxxxxxxxxxxxxxxxxxxx"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">应用Secret</label>
+                  <input 
+                    type="password" 
+                    value={config.corp_secret || ''}
+                    onChange={(e) => setConfig({...config, corp_secret: e.target.value})}
+                    className="w-full p-2 border rounded-lg"
+                    placeholder="应用密钥"
+                  />
+                </div>
+              </div>
+            )}
+
+            {config.source_type === 'api' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">API端点</label>
+                  <input 
+                    type="url" 
+                    value={config.api_endpoint || ''}
+                    onChange={(e) => setConfig({...config, api_endpoint: e.target.value})}
+                    className="w-full p-2 border rounded-lg"
+                    placeholder="https://api.example.com/documents"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">认证方式</label>
+                  <select 
+                    value={config.auth_type || 'none'}
+                    onChange={(e) => setConfig({...config, auth_type: e.target.value})}
+                    className="w-full p-2 border rounded-lg"
+                  >
+                    <option value="none">无认证</option>
+                    <option value="bearer">Bearer Token</option>
+                    <option value="api_key">API Key</option>
+                    <option value="basic">Basic Auth</option>
+                  </select>
+                </div>
+                {config.auth_type !== 'none' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">认证凭据</label>
+                    <input 
+                      type="password" 
+                      value={config.auth_credentials || ''}
+                      onChange={(e) => setConfig({...config, auth_credentials: e.target.value})}
+                      className="w-full p-2 border rounded-lg"
+                      placeholder="认证密钥或令牌"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium mb-2">处理策略</label>
+              <select 
+                value={config.processing_strategy || 'auto'}
+                onChange={(e) => setConfig({...config, processing_strategy: e.target.value})}
+                className="w-full p-2 border rounded-lg"
+              >
+                <option value="auto">AUTO - 智能检测</option>
+                <option value="hi_res">HI_RES - 高精度布局</option>
+                <option value="fast">FAST - 快速提取</option>
+                <option value="ocr_only">OCR_ONLY - 纯OCR</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">批量处理</label>
+              <div className="flex items-center space-x-4">
+                <label className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={config.batch_processing || false}
+                    onChange={(e) => setConfig({...config, batch_processing: e.target.checked})}
+                    className="mr-2"
+                  />
+                  启用批量处理
+                </label>
+                <input 
+                  type="number" 
+                  value={config.batch_size || 10}
+                  onChange={(e) => setConfig({...config, batch_size: parseInt(e.target.value)})}
+                  className="w-20 p-1 border rounded"
+                  min="1"
+                  max="100"
+                />
+                <span className="text-sm text-gray-600">个/批次</span>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'llm':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">LLM提供商</label>
+              <select 
+                value={config.llm_provider || 'openai'}
+                onChange={(e) => setConfig({...config, llm_provider: e.target.value})}
+                className="w-full p-2 border rounded-lg"
+              >
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic Claude</option>
+                <option value="azure">Azure OpenAI</option>
+                <option value="ollama">Ollama (本地)</option>
+                <option value="qwen">通义千问</option>
+                <option value="baidu">文心一言</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">模型名称</label>
+              <select 
+                value={config.model_name || 'gpt-4'}
+                onChange={(e) => setConfig({...config, model_name: e.target.value})}
+                className="w-full p-2 border rounded-lg"
+              >
+                {config.llm_provider === 'openai' && (
+                  <>
+                    <option value="gpt-4">GPT-4</option>
+                    <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                  </>
+                )}
+                {config.llm_provider === 'anthropic' && (
+                  <>
+                    <option value="claude-3-opus">Claude 3 Opus</option>
+                    <option value="claude-3-sonnet">Claude 3 Sonnet</option>
+                    <option value="claude-3-haiku">Claude 3 Haiku</option>
+                  </>
+                )}
+                {config.llm_provider === 'ollama' && (
+                  <>
+                    <option value="llama2">Llama 2</option>
+                    <option value="codellama">Code Llama</option>
+                    <option value="mistral">Mistral</option>
+                  </>
+                )}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">API密钥</label>
+              <input 
+                type="password" 
+                value={config.api_key || ''}
+                onChange={(e) => setConfig({...config, api_key: e.target.value})}
+                className="w-full p-2 border rounded-lg"
+                placeholder="sk-..."
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">最大Token数</label>
+                <input 
+                  type="number" 
+                  value={config.max_tokens || 4000}
+                  onChange={(e) => setConfig({...config, max_tokens: parseInt(e.target.value)})}
+                  className="w-full p-2 border rounded-lg"
+                  min="100"
+                  max="128000"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">温度</label>
+                <input 
+                  type="number" 
+                  value={config.temperature || 0.7}
+                  onChange={(e) => setConfig({...config, temperature: parseFloat(e.target.value)})}
+                  className="w-full p-2 border rounded-lg"
+                  min="0"
+                  max="2"
+                  step="0.1"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">处理任务</label>
+              <select 
+                value={config.task_type || 'summarize'}
+                onChange={(e) => setConfig({...config, task_type: e.target.value})}
+                className="w-full p-2 border rounded-lg"
+              >
+                <option value="summarize">文档总结</option>
+                <option value="extract">信息提取</option>
+                <option value="translate">内容翻译</option>
+                <option value="classify">文档分类</option>
+                <option value="qa">问答生成</option>
+                <option value="custom">自定义任务</option>
+              </select>
+            </div>
+
+            {config.task_type === 'custom' && (
+              <div>
+                <label className="block text-sm font-medium mb-2">自定义提示词</label>
+                <textarea 
+                  value={config.custom_prompt || ''}
+                  onChange={(e) => setConfig({...config, custom_prompt: e.target.value})}
+                  className="w-full p-2 border rounded-lg h-24"
+                  placeholder="请输入自定义的处理提示词..."
+                />
+              </div>
+            )}
+          </div>
+        );
+
+      case 'vision':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">视觉模型提供商</label>
+              <select 
+                value={config.vision_provider || 'openai'}
+                onChange={(e) => setConfig({...config, vision_provider: e.target.value})}
+                className="w-full p-2 border rounded-lg"
+              >
+                <option value="openai">OpenAI GPT-4V</option>
+                <option value="anthropic">Claude 3 Vision</option>
+                <option value="google">Google Gemini Vision</option>
+                <option value="azure">Azure Computer Vision</option>
+                <option value="local">本地OCR</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">处理类型</label>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={config.ocr_enabled || false}
+                    onChange={(e) => setConfig({...config, ocr_enabled: e.target.checked})}
+                    className="mr-2"
+                  />
+                  OCR文字识别
+                </label>
+                <label className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={config.layout_detection || false}
+                    onChange={(e) => setConfig({...config, layout_detection: e.target.checked})}
+                    className="mr-2"
+                  />
+                  版面布局检测
+                </label>
+                <label className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={config.table_extraction || false}
+                    onChange={(e) => setConfig({...config, table_extraction: e.target.checked})}
+                    className="mr-2"
+                  />
+                  表格结构提取
+                </label>
+                <label className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={config.image_description || false}
+                    onChange={(e) => setConfig({...config, image_description: e.target.checked})}
+                    className="mr-2"
+                  />
+                  图像内容描述
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">支持的图像格式</label>
+              <div className="flex flex-wrap gap-2">
+                {['JPG', 'PNG', 'PDF', 'TIFF', 'BMP', 'WEBP'].map(format => (
+                  <span key={format} className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                    {format}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">图像质量</label>
+                <select 
+                  value={config.image_quality || 'high'}
+                  onChange={(e) => setConfig({...config, image_quality: e.target.value})}
+                  className="w-full p-2 border rounded-lg"
+                >
+                  <option value="low">低质量(快速)</option>
+                  <option value="medium">中等质量</option>
+                  <option value="high">高质量(精确)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">语言</label>
+                <select 
+                  value={config.ocr_language || 'auto'}
+                  onChange={(e) => setConfig({...config, ocr_language: e.target.value})}
+                  className="w-full p-2 border rounded-lg"
+                >
+                  <option value="auto">自动检测</option>
+                  <option value="zh">中文</option>
+                  <option value="en">English</option>
+                  <option value="ja">日本語</option>
+                  <option value="ko">한국어</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'chunking':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">分块策略</label>
+              <select 
+                value={config.chunk_strategy || 'by_title'}
+                onChange={(e) => setConfig({...config, chunk_strategy: e.target.value})}
+                className="w-full p-2 border rounded-lg"
+              >
+                <option value="by_title">按标题分组</option>
+                <option value="by_page">按页面分割</option>
+                <option value="by_similarity">语义相似性</option>
+                <option value="fixed_size">固定大小</option>
+                <option value="recursive">递归分割</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">块大小</label>
+                <input 
+                  type="number" 
+                  value={config.chunk_size || 1000}
+                  onChange={(e) => setConfig({...config, chunk_size: parseInt(e.target.value)})}
+                  className="w-full p-2 border rounded-lg"
+                  min="100"
+                  max="8000"
+                />
+                <span className="text-xs text-gray-500">字符数</span>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">重叠大小</label>
+                <input 
+                  type="number" 
+                  value={config.chunk_overlap || 200}
+                  onChange={(e) => setConfig({...config, chunk_overlap: parseInt(e.target.value)})}
+                  className="w-full p-2 border rounded-lg"
+                  min="0"
+                  max="1000"
+                />
+                <span className="text-xs text-gray-500">字符数</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">上下文合并</label>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={config.context_merge || false}
+                    onChange={(e) => setConfig({...config, context_merge: e.target.checked})}
+                    className="mr-2"
+                  />
+                  启用上下文合并
+                </label>
+                <label className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={config.preserve_structure || false}
+                    onChange={(e) => setConfig({...config, preserve_structure: e.target.checked})}
+                    className="mr-2"
+                  />
+                  保持文档结构
+                </label>
+                <label className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={config.smart_boundary || false}
+                    onChange={(e) => setConfig({...config, smart_boundary: e.target.checked})}
+                    className="mr-2"
+                  />
+                  智能边界检测
+                </label>
+              </div>
+            </div>
+
+            {config.context_merge && (
+              <div>
+                <label className="block text-sm font-medium mb-2">合并窗口大小</label>
+                <input 
+                  type="number" 
+                  value={config.merge_window || 3}
+                  onChange={(e) => setConfig({...config, merge_window: parseInt(e.target.value)})}
+                  className="w-full p-2 border rounded-lg"
+                  min="2"
+                  max="10"
+                />
+                <span className="text-xs text-gray-500">相邻块数量</span>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'embedding':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">嵌入模型提供商</label>
+              <select 
+                value={config.embedding_provider || 'openai'}
+                onChange={(e) => setConfig({...config, embedding_provider: e.target.value})}
+                className="w-full p-2 border rounded-lg"
+              >
+                <option value="openai">OpenAI</option>
+                <option value="azure">Azure OpenAI</option>
+                <option value="cohere">Cohere</option>
+                <option value="huggingface">Hugging Face</option>
+                <option value="sentence_transformers">Sentence Transformers</option>
+                <option value="local">本地模型</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">模型名称</label>
+              <select 
+                value={config.embedding_model || 'text-embedding-ada-002'}
+                onChange={(e) => setConfig({...config, embedding_model: e.target.value})}
+                className="w-full p-2 border rounded-lg"
+              >
+                {config.embedding_provider === 'openai' && (
+                  <>
+                    <option value="text-embedding-ada-002">text-embedding-ada-002</option>
+                    <option value="text-embedding-3-small">text-embedding-3-small</option>
+                    <option value="text-embedding-3-large">text-embedding-3-large</option>
+                  </>
+                )}
+                {config.embedding_provider === 'sentence_transformers' && (
+                  <>
+                    <option value="all-MiniLM-L6-v2">all-MiniLM-L6-v2</option>
+                    <option value="all-mpnet-base-v2">all-mpnet-base-v2</option>
+                    <option value="paraphrase-MiniLM-L6-v2">paraphrase-MiniLM-L6-v2</option>
+                  </>
+                )}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">向量维度</label>
+                <input 
+                  type="number" 
+                  value={config.dimensions || 1536}
+                  onChange={(e) => setConfig({...config, dimensions: parseInt(e.target.value)})}
+                  className="w-full p-2 border rounded-lg"
+                  readOnly
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">批处理大小</label>
+                <input 
+                  type="number" 
+                  value={config.batch_size || 32}
+                  onChange={(e) => setConfig({...config, batch_size: parseInt(e.target.value)})}
+                  className="w-full p-2 border rounded-lg"
+                  min="1"
+                  max="100"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">文本预处理</label>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={config.normalize_text || false}
+                    onChange={(e) => setConfig({...config, normalize_text: e.target.checked})}
+                    className="mr-2"
+                  />
+                  文本标准化
+                </label>
+                <label className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={config.remove_stopwords || false}
+                    onChange={(e) => setConfig({...config, remove_stopwords: e.target.checked})}
+                    className="mr-2"
+                  />
+                  移除停用词
+                </label>
+                <label className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={config.lowercase || false}
+                    onChange={(e) => setConfig({...config, lowercase: e.target.checked})}
+                    className="mr-2"
+                  />
+                  转换小写
+                </label>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'connector':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">连接器类型</label>
+              <select 
+                value={config.connector_type || 'qdrant'}
+                onChange={(e) => setConfig({...config, connector_type: e.target.value})}
+                className="w-full p-2 border rounded-lg"
+              >
+                <option value="qdrant">Qdrant</option>
+                <option value="pinecone">Pinecone</option>
+                <option value="weaviate">Weaviate</option>
+                <option value="chroma">Chroma</option>
+                <option value="elasticsearch">Elasticsearch</option>
+                <option value="mongodb">MongoDB</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">连接地址</label>
+              <input 
+                type="text" 
+                value={config.connection_url || ''}
+                onChange={(e) => setConfig({...config, connection_url: e.target.value})}
+                className="w-full p-2 border rounded-lg"
+                placeholder="https://your-instance.qdrant.io"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">API密钥</label>
+              <input 
+                type="password" 
+                value={config.api_key || ''}
+                onChange={(e) => setConfig({...config, api_key: e.target.value})}
+                className="w-full p-2 border rounded-lg"
+                placeholder="API密钥"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">集合名称</label>
+                <input 
+                  type="text" 
+                  value={config.collection_name || ''}
+                  onChange={(e) => setConfig({...config, collection_name: e.target.value})}
+                  className="w-full p-2 border rounded-lg"
+                  placeholder="documents"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">批量大小</label>
+                <input 
+                  type="number" 
+                  value={config.batch_size || 100}
+                  onChange={(e) => setConfig({...config, batch_size: parseInt(e.target.value)})}
+                  className="w-full p-2 border rounded-lg"
+                  min="1"
+                  max="1000"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">元数据字段</label>
+              <textarea 
+                value={config.metadata_fields || ''}
+                onChange={(e) => setConfig({...config, metadata_fields: e.target.value})}
+                className="w-full p-2 border rounded-lg h-20"
+                placeholder="title, source, created_at, tags"
+              />
+              <span className="text-xs text-gray-500">逗号分隔的字段名</span>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">索引设置</label>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={config.auto_create_index || false}
+                    onChange={(e) => setConfig({...config, auto_create_index: e.target.checked})}
+                    className="mr-2"
+                  />
+                  自动创建索引
+                </label>
+                <label className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={config.update_existing || false}
+                    onChange={(e) => setConfig({...config, update_existing: e.target.checked})}
+                    className="mr-2"
+                  />
+                  更新已存在文档
+                </label>
+              </div>
+            </div>
+          </div>
+        );
+
+      default:
+        return <div>暂无配置选项</div>;
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold">节点配置 - {node.type}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <XMarkIcon className="h-6 w-6" />
+          </button>
+        </div>
+        
+        {renderConfigForm()}
+        
+        <div className="flex justify-end space-x-2 mt-6">
+          <button 
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+          >
+            取消
+          </button>
+          <button 
+            onClick={handleSave}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            保存配置
+          </button>
+        </div>
       </div>
-      <div><strong>语言检测:</strong> 自动识别</div>
-      <div><strong>表格提取:</strong> 结构化处理</div>
     </div>
-  </div>
-);
-
-const CleaningNode = ({ data }) => (
-  <div className="px-4 py-3 shadow-lg rounded-lg bg-yellow-50 border-2 border-yellow-200 min-w-56">
-    <Handle type="target" position={Position.Left} className="w-3 h-3" />
-    <Handle type="source" position={Position.Right} className="w-3 h-3" />
-    <div className="flex items-center gap-2 mb-2">
-      <ArrowPathIcon className="h-5 w-5 text-yellow-600" />
-      <div className="font-bold text-yellow-900">数据清理</div>
-    </div>
-    <div className="text-sm text-gray-600 space-y-1">
-      <div><strong>清理功能:</strong></div>
-      <div className="text-xs space-y-1">
-        <div>• 移除多余空白和换行</div>
-        <div>• 标准化文本格式</div>
-        <div>• 过滤无关字符</div>
-        <div>• 统一编码格式</div>
-      </div>
-      <div><strong>质量提升:</strong> 为下游处理优化</div>
-    </div>
-  </div>
-);
-
-const ChunkingNode = ({ data }) => (
-  <div className="px-4 py-3 shadow-lg rounded-lg bg-indigo-50 border-2 border-indigo-200 min-w-56">
-    <Handle type="target" position={Position.Left} className="w-3 h-3" />
-    <Handle type="source" position={Position.Right} className="w-3 h-3" />
-    <div className="flex items-center gap-2 mb-2">
-      <TableCellsIcon className="h-5 w-5 text-indigo-600" />
-      <div className="font-bold text-indigo-900">智能分块</div>
-    </div>
-    <div className="text-sm text-gray-600 space-y-1">
-      <div><strong>分块策略:</strong></div>
-      <div className="text-xs space-y-1">
-        <div>• by_title - 按标题分组</div>
-        <div>• by_page - 按页面分割</div>
-        <div>• by_similarity - 语义相似性</div>
-        <div>• fixed_size - 固定大小</div>
-      </div>
-      <div><strong>优化目标:</strong> RAG系统性能</div>
-      <div><strong>块大小:</strong> {data.chunk_size || '1000'} tokens</div>
-    </div>
-  </div>
-);
-
-const EmbeddingNode = ({ data }) => (
-  <div className="px-4 py-3 shadow-lg rounded-lg bg-purple-50 border-2 border-purple-200 min-w-56">
-    <Handle type="target" position={Position.Left} className="w-3 h-3" />
-    <Handle type="source" position={Position.Right} className="w-3 h-3" />
-    <div className="flex items-center gap-2 mb-2">
-      <ChartBarIcon className="h-5 w-5 text-purple-600" />
-      <div className="font-bold text-purple-900">向量嵌入</div>
-    </div>
-    <div className="text-sm text-gray-600 space-y-1">
-      <div><strong>模型支持:</strong></div>
-      <div className="text-xs space-y-1">
-        <div>• OpenAI Embeddings</div>
-        <div>• Bedrock Embeddings</div>
-        <div>• Sentence Transformers</div>
-        <div>• Hugging Face Models</div>
-      </div>
-      <div><strong>向量维度:</strong> {data.dimensions || '1536'}</div>
-      <div><strong>批处理:</strong> 优化性能</div>
-    </div>
-  </div>
-);
-
-const ConnectorNode = ({ data }) => (
-  <div className="px-4 py-3 shadow-lg rounded-lg bg-orange-50 border-2 border-orange-200 min-w-56">
-    <Handle type="target" position={Position.Left} className="w-3 h-3" />
-    <div className="flex items-center gap-2 mb-2">
-      <EyeIcon className="h-5 w-5 text-orange-600" />
-      <div className="font-bold text-orange-900">数据连接器</div>
-    </div>
-    <div className="text-sm text-gray-600 space-y-1">
-      <div><strong>目标类型:</strong> {data.connector_type || '向量数据库'}</div>
-      <div><strong>支持的连接器:</strong></div>
-      <div className="text-xs space-y-1">
-        <div>• Pinecone</div>
-        <div>• Qdrant</div>
-        <div>• Weaviate</div>
-        <div>• Elasticsearch</div>
-        <div>• MongoDB</div>
-        <div>• Discord</div>
-      </div>
-      <div><strong>数据格式:</strong> {data.output_format || 'JSON'}</div>
-    </div>
-  </div>
-);
-
-const nodeTypes = {
-  datasource: DataSourceNode,
-  partition: PartitionNode,
-  cleaning: CleaningNode,
-  chunking: ChunkingNode,
-  embedding: EmbeddingNode,
-  connector: ConnectorNode,
+  );
 };
 
-// Enhanced initial workflow with real Unstructured pipeline
+// 自定义节点组件
+const CustomNode = ({ data, id, type }) => {
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+
+  const nodeConfig = {
+    datasource: {
+      title: '数据源',
+      icon: FolderIcon,
+      color: 'blue',
+      description: '文档数据输入'
+    },
+    llm: {
+      title: 'LLM处理',
+      icon: ChatBubbleBottomCenterTextIcon,
+      color: 'purple',
+      description: '大语言模型'
+    },
+    vision: {
+      title: '视觉识别',
+      icon: PhotoIcon,
+      color: 'green',
+      description: 'OCR与图像理解'
+    },
+    chunking: {
+      title: '智能分块',
+      icon: TableCellsIcon,
+      color: 'indigo',
+      description: '上下文合并分割'
+    },
+    embedding: {
+      title: '向量嵌入',
+      icon: CpuChipIcon,
+      color: 'pink',
+      description: '语义向量生成'
+    },
+    connector: {
+      title: '数据连接器',
+      icon: ServerIcon,
+      color: 'orange',
+      description: '向量数据库输出'
+    }
+  };
+
+  const config = nodeConfig[type] || nodeConfig.datasource;
+  const IconComponent = config.icon;
+
+  const getColorClasses = (color) => {
+    const colors = {
+      blue: 'bg-blue-50 border-blue-200 text-blue-900',
+      purple: 'bg-purple-50 border-purple-200 text-purple-900',
+      green: 'bg-green-50 border-green-200 text-green-900',
+      indigo: 'bg-indigo-50 border-indigo-200 text-indigo-900',
+      pink: 'bg-pink-50 border-pink-200 text-pink-900',
+      orange: 'bg-orange-50 border-orange-200 text-orange-900'
+    };
+    return colors[color] || colors.blue;
+  };
+
+  return (
+    <>
+      <div className={`px-4 py-3 shadow-lg rounded-lg border-2 min-w-64 ${getColorClasses(config.color)} cursor-pointer transition-all hover:shadow-xl`}>
+        {type !== 'datasource' && <Handle type="target" position={Position.Left} className="w-3 h-3" />}
+        {type !== 'connector' && <Handle type="source" position={Position.Right} className="w-3 h-3" />}
+        
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <IconComponent className="h-5 w-5" />
+            <div className="font-bold">{config.title}</div>
+          </div>
+          <button 
+            onClick={() => setIsConfigOpen(true)}
+            className="p-1 hover:bg-gray-200 rounded"
+          >
+            <AdjustmentsHorizontalIcon className="h-4 w-4" />
+          </button>
+        </div>
+        
+        <div className="text-sm text-gray-600 mb-2">
+          {config.description}
+        </div>
+        
+        <div className="text-xs space-y-1">
+          {type === 'datasource' && (
+            <>
+              <div><strong>类型:</strong> {data.source_type || '文件上传'}</div>
+              <div><strong>策略:</strong> {data.processing_strategy || 'AUTO'}</div>
+              {data.filename && <div><strong>文件:</strong> {data.filename}</div>}
+            </>
+          )}
+          
+          {type === 'llm' && (
+            <>
+              <div><strong>提供商:</strong> {data.llm_provider || 'OpenAI'}</div>
+              <div><strong>模型:</strong> {data.model_name || 'GPT-4'}</div>
+              <div><strong>任务:</strong> {data.task_type || '文档总结'}</div>
+            </>
+          )}
+          
+          {type === 'vision' && (
+            <>
+              <div><strong>提供商:</strong> {data.vision_provider || 'OpenAI GPT-4V'}</div>
+              <div><strong>OCR:</strong> {data.ocr_enabled ? '启用' : '禁用'}</div>
+              <div><strong>语言:</strong> {data.ocr_language || '自动检测'}</div>
+            </>
+          )}
+          
+          {type === 'chunking' && (
+            <>
+              <div><strong>策略:</strong> {data.chunk_strategy || 'by_title'}</div>
+              <div><strong>大小:</strong> {data.chunk_size || 1000} 字符</div>
+              <div><strong>上下文合并:</strong> {data.context_merge ? '启用' : '禁用'}</div>
+            </>
+          )}
+          
+          {type === 'embedding' && (
+            <>
+              <div><strong>提供商:</strong> {data.embedding_provider || 'OpenAI'}</div>
+              <div><strong>模型:</strong> {data.embedding_model || 'ada-002'}</div>
+              <div><strong>维度:</strong> {data.dimensions || 1536}</div>
+            </>
+          )}
+          
+          {type === 'connector' && (
+            <>
+              <div><strong>类型:</strong> {data.connector_type || 'Qdrant'}</div>
+              <div><strong>集合:</strong> {data.collection_name || 'documents'}</div>
+              <div><strong>批量:</strong> {data.batch_size || 100}</div>
+            </>
+          )}
+        </div>
+      </div>
+      
+      <NodeConfigModal 
+        node={{id, type, data}}
+        isOpen={isConfigOpen}
+        onClose={() => setIsConfigOpen(false)}
+        onSave={(nodeId, config) => {
+          // 这里应该更新节点配置
+          console.log('Saving config for node', nodeId, config);
+        }}
+      />
+    </>
+  );
+};
+
+const nodeTypes = {
+  datasource: (props) => <CustomNode {...props} type="datasource" />,
+  llm: (props) => <CustomNode {...props} type="llm" />,
+  vision: (props) => <CustomNode {...props} type="vision" />,
+  chunking: (props) => <CustomNode {...props} type="chunking" />,
+  embedding: (props) => <CustomNode {...props} type="embedding" />,
+  connector: (props) => <CustomNode {...props} type="connector" />,
+};
+
+// 初始工作流
 const initialNodes = [
   {
     id: '1',
     type: 'datasource',
-    position: { x: 50, y: 100 },
-    data: { 
-      label: '文档上传', 
-      source_type: 'upload',
-      processing_strategy: 'auto',
-      onFileUpload: null,
-      onStrategyChange: null
-    },
+    position: { x: 50, y: 150 },
+    data: { source_type: 'upload', processing_strategy: 'auto' },
   },
   {
     id: '2',
-    type: 'partition',
-    position: { x: 350, y: 100 },
-    data: { 
-      label: '智能分割',
-      partition_strategy: 'auto'
-    },
+    type: 'vision',
+    position: { x: 400, y: 50 },
+    data: { vision_provider: 'openai', ocr_enabled: true },
   },
   {
     id: '3',
-    type: 'cleaning',
-    position: { x: 650, y: 100 },
-    data: { 
-      label: '数据清理',
-      cleaning_mode: 'standard'
-    },
+    type: 'llm',
+    position: { x: 400, y: 250 },
+    data: { llm_provider: 'openai', task_type: 'summarize' },
   },
   {
     id: '4',
     type: 'chunking',
-    position: { x: 950, y: 100 },
-    data: { 
-      label: '智能分块',
-      chunk_strategy: 'by_title',
-      chunk_size: 1000
-    },
+    position: { x: 750, y: 150 },
+    data: { chunk_strategy: 'by_title', context_merge: true },
   },
   {
     id: '5',
     type: 'embedding',
-    position: { x: 650, y: 300 },
-    data: { 
-      label: '向量嵌入',
-      model_type: 'openai',
-      dimensions: 1536
-    },
+    position: { x: 1100, y: 150 },
+    data: { embedding_provider: 'openai', dimensions: 1536 },
   },
   {
     id: '6',
     type: 'connector',
-    position: { x: 950, y: 300 },
-    data: { 
-      label: '数据输出',
-      connector_type: 'vector_db',
-      output_format: 'json'
-    },
+    position: { x: 1450, y: 150 },
+    data: { connector_type: 'qdrant', collection_name: 'documents' },
   },
 ];
 
 const initialEdges = [
-  { id: 'e1-2', source: '1', target: '2', type: 'default', animated: true },
-  { id: 'e2-3', source: '2', target: '3', type: 'default', animated: true },
-  { id: 'e3-4', source: '3', target: '4', type: 'default', animated: true },
-  { id: 'e4-5', source: '4', target: '5', type: 'default', animated: true },
-  { id: 'e5-6', source: '5', target: '6', type: 'default', animated: true },
+  { id: 'e1-2', source: '1', target: '2', animated: true },
+  { id: 'e1-3', source: '1', target: '3', animated: true },
+  { id: 'e2-4', source: '2', target: '4', animated: true },
+  { id: 'e3-4', source: '3', target: '4', animated: true },
+  { id: 'e4-5', source: '4', target: '5', animated: true },
+  { id: 'e5-6', source: '5', target: '6', animated: true },
 ];
 
 function App() {
@@ -276,72 +990,6 @@ function App() {
   const [currentWorkflow, setCurrentWorkflow] = useState(null);
   const [executionStatus, setExecutionStatus] = useState(null);
   const [isExecuting, setIsExecuting] = useState(false);
-  const [selectedNode, setSelectedNode] = useState(null);
-  const [showDetails, setShowDetails] = useState(false);
-
-  // Enhanced file upload handler with strategy
-  const handleFileUpload = useCallback(async (event, nodeId) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      toast.info('正在上传文件...');
-      const response = await axios.post(`${API}/upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-
-      // Update node with file info
-      setNodes(nds => nds.map(node => 
-        node.id === nodeId 
-          ? { 
-              ...node, 
-              data: { 
-                ...node.data, 
-                filename: file.name,
-                file_path: response.data.file_path,
-                file_id: response.data.file_id,
-                file_type: response.data.file_type
-              }
-            }
-          : node
-      ));
-
-      toast.success(`文件 "${file.name}" 上传成功！`);
-    } catch (error) {
-      console.error('File upload error:', error);
-      toast.error('文件上传失败');
-    }
-  }, []);
-
-  // Strategy change handler
-  const handleStrategyChange = useCallback((strategy, nodeId) => {
-    setNodes(nds => nds.map(node => 
-      node.id === nodeId 
-        ? { 
-            ...node, 
-            data: { 
-              ...node.data, 
-              processing_strategy: strategy
-            }
-          }
-        : node
-    ));
-  }, []);
-
-  // Initialize handlers for nodes
-  useEffect(() => {
-    setNodes(nds => nds.map(node => ({
-      ...node,
-      data: {
-        ...node.data,
-        onFileUpload: node.type === 'datasource' ? handleFileUpload : node.data.onFileUpload,
-        onStrategyChange: node.type === 'datasource' ? handleStrategyChange : node.data.onStrategyChange
-      }
-    })));
-  }, [handleFileUpload, handleStrategyChange]);
 
   const onNodesChange = useCallback(
     (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
@@ -357,23 +1005,26 @@ function App() {
     (connection) => setEdges((eds) => addEdge({ 
       ...connection, 
       id: uuidv4(),
-      type: 'default',
       animated: true
     }, eds)),
     [setEdges]
   );
 
-  const onNodeClick = useCallback((event, node) => {
-    setSelectedNode(node);
-    setShowDetails(true);
-  }, []);
+  const addNode = (type) => {
+    const newNode = {
+      id: uuidv4(),
+      type: type,
+      position: { x: Math.random() * 400 + 200, y: Math.random() * 300 + 150 },
+      data: {},
+    };
+    setNodes(nds => [...nds, newNode]);
+  };
 
-  // Enhanced workflow saving
   const saveWorkflow = async () => {
     try {
       const workflowData = {
-        name: `Unstructured工作流 ${new Date().toLocaleString()}`,
-        description: '基于Unstructured库的文档处理工作流',
+        name: `企业工作流 ${new Date().toLocaleString()}`,
+        description: '基于Unstructured的智能文档处理工作流',
         nodes: nodes,
         edges: edges
       };
@@ -381,24 +1032,12 @@ function App() {
       const response = await axios.post(`${API}/workflows`, workflowData);
       setCurrentWorkflow(response.data);
       toast.success('工作流保存成功！');
-      loadWorkflows();
     } catch (error) {
       console.error('Save workflow error:', error);
       toast.error('保存工作流失败');
     }
   };
 
-  // Load workflows
-  const loadWorkflows = async () => {
-    try {
-      const response = await axios.get(`${API}/workflows`);
-      setWorkflows(response.data);
-    } catch (error) {
-      console.error('Load workflows error:', error);
-    }
-  };
-
-  // Enhanced workflow execution with better tracking
   const executeWorkflow = async () => {
     if (!currentWorkflow) {
       toast.error('请先保存工作流');
@@ -407,13 +1046,11 @@ function App() {
 
     try {
       setIsExecuting(true);
-      setExecutionStatus(null);
-      toast.info('开始执行Unstructured工作流...');
+      toast.info('开始执行企业级工作流...');
 
       const response = await axios.post(`${API}/workflows/${currentWorkflow.id}/execute`);
       const executionId = response.data.execution_id;
 
-      // Enhanced polling with better error handling
       const pollStatus = async () => {
         try {
           const statusResponse = await axios.get(`${API}/executions/${executionId}`);
@@ -421,7 +1058,7 @@ function App() {
 
           if (statusResponse.data.status === 'completed') {
             setIsExecuting(false);
-            toast.success('🎉 Unstructured工作流执行完成！');
+            toast.success('🎉 企业工作流执行完成！');
             return;
           } else if (statusResponse.data.status === 'failed') {
             setIsExecuting(false);
@@ -429,7 +1066,6 @@ function App() {
             return;
           }
 
-          // Continue polling if still running
           setTimeout(pollStatus, 1500);
         } catch (error) {
           console.error('Status poll error:', error);
@@ -446,76 +1082,66 @@ function App() {
     }
   };
 
-  // Enhanced add node function
-  const addNode = (type) => {
-    const nodeConfigs = {
-      datasource: { label: '新数据源', source_type: 'upload' },
-      partition: { label: '新分割器', partition_strategy: 'auto' },
-      cleaning: { label: '新清理器', cleaning_mode: 'standard' },
-      chunking: { label: '新分块器', chunk_strategy: 'by_title' },
-      embedding: { label: '新嵌入器', model_type: 'openai' },
-      connector: { label: '新连接器', connector_type: 'vector_db' }
-    };
-
-    const newNode = {
-      id: uuidv4(),
-      type: type,
-      position: { x: Math.random() * 400 + 200, y: Math.random() * 300 + 150 },
-      data: { 
-        ...nodeConfigs[type],
-        onFileUpload: type === 'datasource' ? handleFileUpload : undefined,
-        onStrategyChange: type === 'datasource' ? handleStrategyChange : undefined
-      },
-    };
-    setNodes(nds => [...nds, newNode]);
-  };
-
-  useEffect(() => {
-    loadWorkflows();
-  }, []);
-
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* Enhanced Header */}
+      {/* 顶部导航 */}
       <div className="bg-white shadow-sm border-b border-gray-200 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <DocumentTextIcon className="h-8 w-8 text-blue-600" />
-                Unstructured 工作流平台
+                <BoltIcon className="h-8 w-8 text-blue-600" />
+                Unstructured 企业工作流平台
               </h1>
-              <p className="text-gray-600">基于Unstructured库的企业级文档处理解决方案</p>
+              <p className="text-gray-600">智能文档处理 | 多模态AI | 企业级连接器</p>
             </div>
-            <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-              支持 PDF • DOCX • HTML • EML • PPTX • TXT
+            <div className="flex gap-2 text-xs">
+              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">LLM集成</span>
+              <span className="bg-green-100 text-green-800 px-2 py-1 rounded">视觉AI</span>
+              <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded">飞书企微</span>
+              <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded">向量数据库</span>
             </div>
           </div>
-          <div className="flex gap-2">
-            <div className="dropdown relative">
-              <button className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+          
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <button className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100">
                 <PlusIcon className="h-4 w-4" />
                 添加节点
               </button>
-              <div className="dropdown-content absolute top-full mt-1 bg-white border rounded-lg shadow-lg p-2 space-y-1 z-10 hidden">
-                <button onClick={() => addNode('datasource')} className="block w-full text-left px-3 py-1 hover:bg-blue-50 rounded">数据源</button>
-                <button onClick={() => addNode('partition')} className="block w-full text-left px-3 py-1 hover:bg-green-50 rounded">文档分割</button>
-                <button onClick={() => addNode('cleaning')} className="block w-full text-left px-3 py-1 hover:bg-yellow-50 rounded">数据清理</button>
-                <button onClick={() => addNode('chunking')} className="block w-full text-left px-3 py-1 hover:bg-indigo-50 rounded">智能分块</button>
-                <button onClick={() => addNode('embedding')} className="block w-full text-left px-3 py-1 hover:bg-purple-50 rounded">向量嵌入</button>
-                <button onClick={() => addNode('connector')} className="block w-full text-left px-3 py-1 hover:bg-orange-50 rounded">数据连接器</button>
+              <div className="absolute top-full mt-1 bg-white border rounded-lg shadow-lg p-2 space-y-1 z-10 hidden group-hover:block">
+                <button onClick={() => addNode('datasource')} className="block w-full text-left px-3 py-2 hover:bg-blue-50 rounded flex items-center gap-2">
+                  <FolderIcon className="h-4 w-4" /> 数据源
+                </button>
+                <button onClick={() => addNode('llm')} className="block w-full text-left px-3 py-2 hover:bg-purple-50 rounded flex items-center gap-2">
+                  <ChatBubbleBottomCenterTextIcon className="h-4 w-4" /> LLM处理
+                </button>
+                <button onClick={() => addNode('vision')} className="block w-full text-left px-3 py-2 hover:bg-green-50 rounded flex items-center gap-2">
+                  <PhotoIcon className="h-4 w-4" /> 视觉识别
+                </button>
+                <button onClick={() => addNode('chunking')} className="block w-full text-left px-3 py-2 hover:bg-indigo-50 rounded flex items-center gap-2">
+                  <TableCellsIcon className="h-4 w-4" /> 智能分块
+                </button>
+                <button onClick={() => addNode('embedding')} className="block w-full text-left px-3 py-2 hover:bg-pink-50 rounded flex items-center gap-2">
+                  <CpuChipIcon className="h-4 w-4" /> 向量嵌入
+                </button>
+                <button onClick={() => addNode('connector')} className="block w-full text-left px-3 py-2 hover:bg-orange-50 rounded flex items-center gap-2">
+                  <ServerIcon className="h-4 w-4" /> 数据连接器
+                </button>
               </div>
             </div>
+            
             <button
               onClick={saveWorkflow}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
             >
               保存工作流
             </button>
+            
             <button
               onClick={executeWorkflow}
               disabled={isExecuting}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
               {isExecuting ? (
                 <>
@@ -533,64 +1159,48 @@ function App() {
         </div>
       </div>
 
-      {/* Enhanced Status Bar */}
+      {/* 状态栏 */}
       {executionStatus && (
-        <div className="bg-gradient-to-r from-blue-50 to-green-50 border-b border-blue-200 p-4">
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-b p-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <span className="font-medium">执行状态:</span>
-                <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${
-                  executionStatus.status === 'completed' ? 'bg-green-100 text-green-800' :
-                  executionStatus.status === 'failed' ? 'bg-red-100 text-red-800' :
-                  'bg-blue-100 text-blue-800'
-                }`}>
-                  {executionStatus.status === 'completed' && <CheckCircleIcon className="h-4 w-4" />}
-                  {executionStatus.status === 'failed' && <ExclamationTriangleIcon className="h-4 w-4" />}
-                  {executionStatus.status === 'running' && <ClockIcon className="h-4 w-4" />}
-                  {executionStatus.status === 'completed' ? '已完成' : 
-                   executionStatus.status === 'failed' ? '执行失败' : '运行中'}
-                </span>
+            <div className="flex items-center gap-4">
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                executionStatus.status === 'completed' ? 'bg-green-100 text-green-800' :
+                executionStatus.status === 'failed' ? 'bg-red-100 text-red-800' :
+                'bg-blue-100 text-blue-800'
+              }`}>
+                {executionStatus.status === 'completed' ? '✅ 已完成' : 
+                 executionStatus.status === 'failed' ? '❌ 失败' : '🔄 运行中'}
+              </span>
+              <div className="w-48 bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-500"
+                  style={{ width: `${executionStatus.progress || 0}%` }}
+                ></div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-600">进度:</span>
-                <div className="w-48 bg-gray-200 rounded-full h-3">
-                  <div 
-                    className="bg-gradient-to-r from-blue-500 to-green-500 h-3 rounded-full transition-all duration-500"
-                    style={{ width: `${executionStatus.progress || 0}%` }}
-                  ></div>
-                </div>
-                <span className="text-sm font-medium text-gray-700">{executionStatus.progress || 0}%</span>
-              </div>
+              <span className="text-sm font-medium">{executionStatus.progress || 0}%</span>
             </div>
             {executionStatus.results && (
-              <div className="text-sm text-gray-600 bg-white px-3 py-1 rounded-lg border">
-                <strong>处理结果:</strong> {executionStatus.results.texts_processed} 个文本块 | 
-                {executionStatus.results.vector_storage?.success && ' ✅ 向量存储成功'}
+              <div className="text-sm text-gray-600">
+                处理了 {executionStatus.results.processing_details?.total_elements} 个元素
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* Enhanced Workflow Editor */}
-      <div className="flex-1 relative">
+      {/* 工作流编辑器 */}
+      <div className="flex-1">
         <ReactFlow
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
-          onNodeClick={onNodeClick}
           nodeTypes={nodeTypes}
           connectionMode={ConnectionMode.Loose}
           fitView
           className="bg-gray-50"
-          defaultEdgeOptions={{
-            type: 'default',
-            animated: true,
-            style: { strokeWidth: 2, stroke: '#6b7280' }
-          }}
         >
           <Background color="#e5e7eb" gap={20} variant="dots" />
           <Controls />
@@ -598,59 +1208,19 @@ function App() {
             nodeColor={(node) => {
               const colors = {
                 'datasource': '#3b82f6',
-                'partition': '#10b981',
-                'cleaning': '#f59e0b',
+                'llm': '#8b5cf6',
+                'vision': '#10b981',
                 'chunking': '#6366f1',
-                'embedding': '#8b5cf6',
+                'embedding': '#ec4899',
                 'connector': '#f97316'
               };
               return colors[node.type] || '#6b7280';
             }}
-            maskColor="rgba(255, 255, 255, 0.8)"
           />
         </ReactFlow>
-
-        {/* Node Details Panel */}
-        {showDetails && selectedNode && (
-          <div className="absolute top-4 right-4 w-80 bg-white rounded-lg shadow-lg border p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-lg">节点详情</h3>
-              <button 
-                onClick={() => setShowDetails(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="space-y-2 text-sm">
-              <div><strong>类型:</strong> {selectedNode.type}</div>
-              <div><strong>ID:</strong> {selectedNode.id}</div>
-              <div><strong>位置:</strong> ({Math.round(selectedNode.position.x)}, {Math.round(selectedNode.position.y)})</div>
-              {selectedNode.data.filename && <div><strong>文件:</strong> {selectedNode.data.filename}</div>}
-              {selectedNode.data.processing_strategy && <div><strong>处理策略:</strong> {selectedNode.data.processing_strategy}</div>}
-            </div>
-          </div>
-        )}
-
-        {/* Workflow Info Panel */}
-        <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg border p-4 max-w-sm">
-          <h3 className="font-bold text-lg mb-2">工作流信息</h3>
-          <div className="space-y-1 text-sm text-gray-600">
-            <div><strong>节点数量:</strong> {nodes.length}</div>
-            <div><strong>连接数量:</strong> {edges.length}</div>
-            <div><strong>当前工作流:</strong> {currentWorkflow?.name || '未保存'}</div>
-            <div><strong>Unstructured版本:</strong> 0.15.13</div>
-          </div>
-        </div>
       </div>
 
       <ToastContainer position="bottom-right" />
-      
-      <style jsx>{`
-        .dropdown:hover .dropdown-content {
-          display: block;
-        }
-      `}</style>
     </div>
   );
 }
