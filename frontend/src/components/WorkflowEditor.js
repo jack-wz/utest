@@ -248,6 +248,57 @@ function WorkflowEditor() {
   const [executionStatus, setExecutionStatus] = useState(null);
   const [isExecuting, setIsExecuting] = useState(false);
   const navigate = useNavigate();
+  const handleFileUpload = useCallback(async (event, nodeId) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('strategy', 'auto');
+      formData.append('extract_metadata', 'true');
+
+      toast.info('正在处理文档，提取元数据...');
+      
+      // Use enhanced document processing API
+      const response = await axios.post(`${API}/documents/process`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      // Update node with enhanced file info
+      setNodes(nds => nds.map(node => 
+        node.id === nodeId 
+          ? { 
+              ...node, 
+              data: { 
+                ...node.data, 
+                filename: file.name,
+                document_id: response.data.document.id,
+                file_path: response.data.document.file_path,
+                processing_strategy: response.data.document.processing_strategy,
+                elements_count: response.data.document.elements.length,
+                metadata_extracted: true,
+                visualization_available: true
+              }
+            }
+          : node
+      ));
+
+      toast.success(`文档 "${file.name}" 处理成功！提取了 ${response.data.document.elements.length} 个元素`);
+      
+      // Show option to view visualization
+      setTimeout(() => {
+        if (window.confirm('文档处理完成！是否查看可视化分析？')) {
+          navigate(`/document/${response.data.document.id}`);
+        }
+      }, 1000);
+      
+    } catch (error) {
+      console.error('File upload error:', error);
+      toast.error('文档处理失败');
+    }
+  }, [navigate]);
+
 
   const onNodesChange = useCallback(
     (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
