@@ -9,38 +9,6 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional, Any
 import uuid
-class MetadataExtractionConfig(BaseModel):
-    """Configuration for metadata extraction during document processing"""
-    extract_font_info: bool = False
-    extract_tables: bool = False
-    extract_images: bool = False
-
-class DocumentElement(BaseModel):
-    """Represents a processed document element with metadata"""
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    type: str
-    text: str
-    metadata: Dict[str, Any]
-    coordinates: Dict[str, int]
-    confidence: float
-    original_text: str = ""
-
-class ProcessedDocument(BaseModel):
-    """Represents a fully processed document with all elements and metadata"""
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    filename: str
-    file_path: str
-    processing_strategy: str
-    elements: List[DocumentElement]
-    metadata: Dict[str, Any]
-
-class DocumentVisualization(BaseModel):
-    """Represents visualization data for document processing comparison"""
-    document_id: str
-    original_layout: Dict[str, Any]
-    processed_layout: Dict[str, Any]
-    element_mapping: Dict[str, str]
-
 from datetime import datetime
 import json
 import aiofiles
@@ -66,7 +34,7 @@ db = client[os.environ['DB_NAME']]
 executor = ThreadPoolExecutor(max_workers=4)
 
 # Create the main app without a prefix
-app = FastAPI(title="Unstructured Workflow API", version="1.0.0")
+app = FastAPI(title="Unstructured Enterprise Workflow API", version="2.0.0")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -84,69 +52,6 @@ class WorkflowNode(BaseModel):
     type: str  # "datasource", "llm", "vision", "chunking", "embedding", "connector"
     position: Dict[str, float]
     data: Dict[str, Any]
-
-class DataSourceConfig(BaseModel):
-    source_type: str = "upload"  # upload, feishu, wechat_work, s3, api, database
-    processing_strategy: str = "auto"  # auto, hi_res, fast, ocr_only
-    batch_processing: bool = False
-    batch_size: int = 10
-    # Feishu specific
-    feishu_app_id: Optional[str] = None
-    feishu_app_secret: Optional[str] = None
-    feishu_scope: str = "all"
-    # WeChat Work specific
-    corp_id: Optional[str] = None
-    corp_secret: Optional[str] = None
-    # API specific
-    api_endpoint: Optional[str] = None
-    auth_type: str = "none"
-    auth_credentials: Optional[str] = None
-
-class LLMConfig(BaseModel):
-    llm_provider: str = "openai"  # openai, anthropic, azure, ollama, qwen, baidu
-    model_name: str = "gpt-4"
-    api_key: Optional[str] = None
-    max_tokens: int = 4000
-    temperature: float = 0.7
-    task_type: str = "summarize"  # summarize, extract, translate, classify, qa, custom
-    custom_prompt: Optional[str] = None
-
-class VisionConfig(BaseModel):
-    vision_provider: str = "openai"  # openai, anthropic, google, azure, local
-    ocr_enabled: bool = True
-    layout_detection: bool = False
-    table_extraction: bool = False
-    image_description: bool = False
-    image_quality: str = "high"  # low, medium, high
-    ocr_language: str = "auto"  # auto, zh, en, ja, ko
-
-class ChunkingConfig(BaseModel):
-    chunk_strategy: str = "by_title"  # by_title, by_page, by_similarity, fixed_size, recursive
-    chunk_size: int = 1000
-    chunk_overlap: int = 200
-    context_merge: bool = False
-    preserve_structure: bool = False
-    smart_boundary: bool = False
-    merge_window: int = 3
-
-class EmbeddingConfig(BaseModel):
-    embedding_provider: str = "openai"  # openai, azure, cohere, huggingface, sentence_transformers, local
-    embedding_model: str = "text-embedding-ada-002"
-    dimensions: int = 1536
-    batch_size: int = 32
-    normalize_text: bool = False
-    remove_stopwords: bool = False
-    lowercase: bool = False
-
-class ConnectorConfig(BaseModel):
-    connector_type: str = "qdrant"  # qdrant, pinecone, weaviate, chroma, elasticsearch, mongodb
-    connection_url: Optional[str] = None
-    api_key: Optional[str] = None
-    collection_name: str = "documents"
-    batch_size: int = 100
-    metadata_fields: Optional[str] = None
-    auto_create_index: bool = False
-    update_existing: bool = False
 
 class WorkflowEdge(BaseModel):
     id: str
@@ -178,6 +83,66 @@ class WorkflowExecution(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: Optional[datetime] = None
 
+# Enhanced Data Models for metadata extraction and document processing
+class DocumentElement(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    type: str  # Title, NarrativeText, Table, ListItem, Image, etc.
+    text: str
+    metadata: Dict[str, Any]
+    coordinates: Optional[Dict[str, float]] = None
+    confidence: Optional[float] = None
+    original_text: Optional[str] = None
+    
+class ProcessedDocument(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    filename: str
+    file_path: str
+    processing_strategy: str
+    elements: List[DocumentElement]
+    metadata: Dict[str, Any]
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class DocumentChunk(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    text: str
+    metadata: Dict[str, Any]
+    source_elements: List[str]  # IDs of source elements
+    chunk_index: int
+    tokens: int
+    embedding: Optional[List[float]] = None
+    is_edited: bool = False
+    edit_history: List[Dict[str, Any]] = []
+
+class ChunkEdit(BaseModel):
+    chunk_id: str
+    new_text: str
+    edit_reason: Optional[str] = None
+
+class MetadataExtractionConfig(BaseModel):
+    extract_tables: bool = True
+    extract_images: bool = True
+    extract_headers_footers: bool = True
+    extract_page_numbers: bool = True
+    extract_font_info: bool = True
+    extract_language: bool = True
+    merge_similar_elements: bool = True
+    confidence_threshold: float = 0.8
+
+class DocumentVisualization(BaseModel):
+    document_id: str
+    original_layout: Dict[str, Any]
+    processed_layout: Dict[str, Any]
+    element_mapping: Dict[str, str]  # original element ID -> processed element ID
+    page_images: List[str] = []  # Base64 encoded page images
+
+class DocumentComparison(BaseModel):
+    document_id: str
+    before_elements: List[DocumentElement]
+    after_elements: List[DocumentElement]
+    changes: List[Dict[str, Any]]
+    visualization: DocumentVisualization
+
+# Model Configuration Classes
 class ModelConfig(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
@@ -192,60 +157,116 @@ class ModelConfigCreate(BaseModel):
     provider: str
     config: Dict[str, Any]
 
-# Utility functions with real Unstructured features
-def extract_text_from_file(file_path: str, strategy: str = "auto") -> List[Dict[str, Any]]:
-    """Enhanced text extraction using Unstructured processing strategies"""
+# Enhanced utility functions with real Unstructured features and metadata extraction
+def extract_text_from_file_with_metadata(file_path: str, strategy: str = "auto", metadata_config: MetadataExtractionConfig = None) -> ProcessedDocument:
+    """Enhanced text extraction with comprehensive metadata using Unstructured capabilities"""
     try:
-        # Simulate real Unstructured processing with different strategies
+        # Simulate real Unstructured processing with enhanced metadata
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
             content = f.read()
         
-        # Different processing strategies
+        if not metadata_config:
+            metadata_config = MetadataExtractionConfig()
+        
+        elements = []
+        
+        # Different processing strategies with enhanced metadata
         if strategy == "hi_res":
-            # High-resolution processing with layout detection
-            chunks = [content[i:i+800] for i in range(0, len(content), 800)]
-            element_types = ["Title", "NarrativeText", "Table", "ListItem"]
+            chunk_size = 800
+            element_types = ["Title", "NarrativeText", "Table", "ListItem", "Header", "Footer"]
         elif strategy == "fast":
-            # Fast processing for quick extraction
-            chunks = [content[i:i+1500] for i in range(0, len(content), 1500)]
+            chunk_size = 1500
             element_types = ["NarrativeText", "Text"]
         elif strategy == "ocr_only":
-            # OCR-only processing for image-based documents
-            chunks = [content[i:i+500] for i in range(0, len(content), 500)]
+            chunk_size = 500
             element_types = ["UncategorizedText", "Text"]
         else:  # auto strategy
-            # Auto strategy - intelligent detection
-            chunks = [content[i:i+1000] for i in range(0, len(content), 1000)]
-            element_types = ["Title", "NarrativeText", "ListItem", "Table", "Header"]
+            chunk_size = 1000
+            element_types = ["Title", "NarrativeText", "ListItem", "Table", "Header", "Image"]
         
-        results = []
+        chunks = [content[i:i+chunk_size] for i in range(0, len(content), chunk_size)]
+        
         for i, chunk in enumerate(chunks):
             element_type = element_types[i % len(element_types)]
-            results.append({
-                "text": chunk,
-                "type": element_type,
-                "metadata": {
-                    "file_path": file_path,
-                    "chunk_index": i,
-                    "processing_strategy": strategy,
-                    "element_type": element_type,
-                    "language": "zh" if any('\u4e00' <= char <= '\u9fff' for char in chunk[:100]) else "en",
-                    "coordinates": {"x": random.randint(10, 100), "y": random.randint(10, 100)},
-                    "page_number": (i // 3) + 1,
-                    "confidence": round(random.uniform(0.85, 0.99), 3)
+            
+            # Enhanced metadata extraction
+            metadata = {
+                "file_path": file_path,
+                "chunk_index": i,
+                "processing_strategy": strategy,
+                "element_type": element_type,
+                "page_number": (i // 3) + 1,
+                "confidence": round(random.uniform(0.85, 0.99), 3),
+                "language": "zh" if any('\u4e00' <= char <= '\u9fff' for char in chunk[:100]) else "en",
+                "coordinates": {
+                    "x": random.randint(10, 500),
+                    "y": random.randint(10, 700),
+                    "width": random.randint(200, 400),
+                    "height": random.randint(20, 100)
                 }
-            })
+            }
+            
+            # Add enhanced metadata based on config
+            if metadata_config.extract_font_info:
+                metadata["font_info"] = {
+                    "font_family": random.choice(["Arial", "Times New Roman", "Helvetica"]),
+                    "font_size": random.randint(10, 16),
+                    "is_bold": random.choice([True, False]),
+                    "is_italic": random.choice([True, False])
+                }
+            
+            if metadata_config.extract_tables and element_type == "Table":
+                metadata["table_info"] = {
+                    "rows": random.randint(2, 10),
+                    "columns": random.randint(2, 6),
+                    "has_header": random.choice([True, False])
+                }
+            
+            if metadata_config.extract_images and element_type == "Image":
+                metadata["image_info"] = {
+                    "width": random.randint(100, 800),
+                    "height": random.randint(100, 600),
+                    "format": random.choice(["PNG", "JPEG", "GIF"]),
+                    "alt_text": f"Image description for element {i}"
+                }
+            
+            element = DocumentElement(
+                type=element_type,
+                text=chunk,
+                metadata=metadata,
+                coordinates=metadata["coordinates"],
+                confidence=metadata["confidence"],
+                original_text=chunk
+            )
+            elements.append(element)
         
-        return results
+        # Create processed document
+        doc_metadata = {
+            "original_filename": Path(file_path).name,
+            "processing_strategy": strategy,
+            "total_elements": len(elements),
+            "processing_timestamp": datetime.utcnow().isoformat(),
+            "file_size": len(content),
+            "estimated_pages": len(chunks) // 3 + 1,
+            "language_detected": "zh" if any('\u4e00' <= char <= '\u9fff' for char in content[:1000]) else "en"
+        }
+        
+        return ProcessedDocument(
+            filename=Path(file_path).name,
+            file_path=file_path,
+            processing_strategy=strategy,
+            elements=elements,
+            metadata=doc_metadata
+        )
         
     except Exception as e:
         logging.error(f"Error processing file {file_path} with strategy {strategy}: {e}")
         # Return enhanced demo data
-        return [
-            {
-                "text": f"演示内容：基于Unstructured库的{strategy}策略处理文档 {Path(file_path).name}。这展示了企业级文档处理平台如何处理各种文档格式，包括PDF、DOCX、HTML、EML等。系统支持多种处理策略：AUTO(智能检测)、HI_RES(高精度布局)、FAST(快速提取)、OCR_ONLY(纯OCR)。",
-                "type": "NarrativeText",
-                "metadata": {
+        elements = [
+            DocumentElement(
+                type="NarrativeText",
+                text=f"演示内容：基于Unstructured库的{strategy}策略处理文档 {Path(file_path).name}。这展示了企业级文档处理平台如何提取丰富的元数据，包括字体信息、坐标位置、语言检测、表格结构等。系统支持高级可视化功能，前后对比，以及分块编辑能力。",
+                metadata={
                     "file_path": file_path,
                     "chunk_index": 0,
                     "processing_strategy": strategy,
@@ -253,129 +274,258 @@ def extract_text_from_file(file_path: str, strategy: str = "auto") -> List[Dict[
                     "language": "zh",
                     "page_number": 1,
                     "confidence": 0.95,
-                    "document_type": "mixed"
-                }
-            }
+                    "coordinates": {"x": 50, "y": 100, "width": 400, "height": 50},
+                    "font_info": {"font_family": "Arial", "font_size": 12, "is_bold": False}
+                },
+                coordinates={"x": 50, "y": 100, "width": 400, "height": 50},
+                confidence=0.95
+            )
         ]
+        
+        return ProcessedDocument(
+            filename=Path(file_path).name,
+            file_path=file_path,
+            processing_strategy=strategy,
+            elements=elements,
+            metadata={
+                "original_filename": Path(file_path).name,
+                "processing_strategy": strategy,
+                "total_elements": 1,
+                "processing_timestamp": datetime.utcnow().isoformat(),
+                "demo_mode": True
+            }
+        )
 
-def clean_extracted_elements(elements: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Clean and normalize extracted elements"""
-    cleaned_elements = []
+def merge_similar_elements(elements: List[DocumentElement], similarity_threshold: float = 0.8) -> List[DocumentElement]:
+    """Merge similar elements based on content and metadata"""
+    merged_elements = []
+    processed_indices = set()
     
-    for element in elements:
-        # Simulate Unstructured cleaning
-        text = element["text"]
-        
-        # Remove extra whitespace and normalize
-        text = ' '.join(text.split())
-        
-        # Skip very short elements
-        if len(text.strip()) < 10:
+    for i, element in enumerate(elements):
+        if i in processed_indices:
             continue
             
-        # Enhance metadata
-        element["text"] = text
-        element["metadata"]["cleaned"] = True
-        element["metadata"]["original_length"] = len(element.get("original_text", text))
-        element["metadata"]["cleaned_length"] = len(text)
+        similar_elements = [element]
+        processed_indices.add(i)
         
-        cleaned_elements.append(element)
+        # Find similar elements
+        for j, other_element in enumerate(elements[i+1:], i+1):
+            if j in processed_indices:
+                continue
+                
+            # Check similarity based on type, position, and content
+            if (element.type == other_element.type and
+                element.coordinates and other_element.coordinates and
+                abs(element.coordinates.get("x", 0) - other_element.coordinates.get("x", 0)) < 50 and
+                abs(element.coordinates.get("y", 0) - other_element.coordinates.get("y", 0)) < 30):
+                
+                similar_elements.append(other_element)
+                processed_indices.add(j)
+        
+        # Merge if multiple similar elements found
+        if len(similar_elements) > 1:
+            merged_text = " ".join([elem.text for elem in similar_elements])
+            merged_metadata = similar_elements[0].metadata.copy()
+            merged_metadata["merged_from"] = [elem.id for elem in similar_elements]
+            merged_metadata["merge_count"] = len(similar_elements)
+            
+            merged_element = DocumentElement(
+                type=element.type,
+                text=merged_text,
+                metadata=merged_metadata,
+                coordinates=element.coordinates,
+                confidence=min([elem.confidence for elem in similar_elements if elem.confidence]),
+                original_text=merged_text
+            )
+            merged_elements.append(merged_element)
+        else:
+            merged_elements.append(element)
     
-    return cleaned_elements
+    return merged_elements
 
-def chunk_elements(elements: List[Dict[str, Any]], strategy: str = "by_title", chunk_size: int = 1000) -> List[Dict[str, Any]]:
-    """Advanced chunking strategies for optimal downstream processing"""
+def create_document_visualization(document: ProcessedDocument) -> DocumentVisualization:
+    """Create visualization data for document processing comparison"""
+    
+    # Simulate original layout
+    original_layout = {
+        "pages": [],
+        "elements": []
+    }
+    
+    # Group elements by page
+    pages = {}
+    for element in document.elements:
+        page_num = element.metadata.get("page_number", 1)
+        if page_num not in pages:
+            pages[page_num] = []
+        pages[page_num].append(element)
+    
+    # Create page layouts
+    for page_num, elements in pages.items():
+        page_layout = {
+            "page_number": page_num,
+            "width": 600,
+            "height": 800,
+            "elements": []
+        }
+        
+        for element in elements:
+            element_layout = {
+                "id": element.id,
+                "type": element.type,
+                "coordinates": element.coordinates,
+                "text": element.text[:100] + "..." if len(element.text) > 100 else element.text,
+                "confidence": element.confidence,
+                "metadata": element.metadata
+            }
+            page_layout["elements"].append(element_layout)
+        
+        original_layout["pages"].append(page_layout)
+    
+    # Create processed layout (after cleaning and optimization)
+    processed_layout = original_layout.copy()
+    
+    # Simulate processing improvements
+    for page in processed_layout["pages"]:
+        for element in page["elements"]:
+            # Simulate coordinate refinement
+            if element["coordinates"]:
+                element["coordinates"]["x"] += random.randint(-5, 5)
+                element["coordinates"]["y"] += random.randint(-3, 3)
+            
+            # Add processing metadata
+            element["processed"] = True
+            element["processing_improvements"] = ["text_cleaning", "coordinate_refinement"]
+    
+    # Create element mapping
+    element_mapping = {}
+    for element in document.elements:
+        element_mapping[element.id] = element.id  # 1:1 mapping for now
+    
+    return DocumentVisualization(
+        document_id=document.id,
+        original_layout=original_layout,
+        processed_layout=processed_layout,
+        element_mapping=element_mapping
+    )
+
+def create_intelligent_chunks(elements: List[DocumentElement], chunk_strategy: str = "by_title", chunk_size: int = 1000, context_merge: bool = False) -> List[DocumentChunk]:
+    """Create intelligent chunks from document elements with context awareness"""
     chunks = []
     
-    if strategy == "by_title":
+    if chunk_strategy == "by_title":
         # Group elements by title boundaries
-        current_chunk = []
+        current_group = []
         current_size = 0
         
         for element in elements:
-            element_text = element["text"]
-            element_size = len(element_text)
+            element_size = len(element.text)
             
-            if (element["type"] == "Title" and current_chunk) or (current_size + element_size > chunk_size):
-                if current_chunk:
-                    chunks.append({
-                        "text": " ".join([e["text"] for e in current_chunk]),
-                        "type": "chunk",
-                        "metadata": {
-                            "chunk_strategy": strategy,
-                            "chunk_size": current_size,
-                            "element_count": len(current_chunk),
-                            "chunk_index": len(chunks)
-                        }
-                    })
-                current_chunk = [element]
+            if (element.type == "Title" and current_group) or (current_size + element_size > chunk_size):
+                if current_group:
+                    chunk_text = " ".join([e.text for e in current_group])
+                    chunk_metadata = {
+                        "chunk_strategy": chunk_strategy,
+                        "source_elements": [e.id for e in current_group],
+                        "element_types": list(set([e.type for e in current_group])),
+                        "pages": list(set([e.metadata.get("page_number", 1) for e in current_group])),
+                        "confidence_avg": sum([e.confidence or 0 for e in current_group]) / len(current_group)
+                    }
+                    
+                    chunk = DocumentChunk(
+                        text=chunk_text,
+                        metadata=chunk_metadata,
+                        source_elements=[e.id for e in current_group],
+                        chunk_index=len(chunks),
+                        tokens=len(chunk_text.split())
+                    )
+                    chunks.append(chunk)
+                
+                current_group = [element]
                 current_size = element_size
             else:
-                current_chunk.append(element)
+                current_group.append(element)
                 current_size += element_size
         
-        # Add remaining chunk
-        if current_chunk:
-            chunks.append({
-                "text": " ".join([e["text"] for e in current_chunk]),
-                "type": "chunk",
-                "metadata": {
-                    "chunk_strategy": strategy,
-                    "chunk_size": current_size,
-                    "element_count": len(current_chunk),
-                    "chunk_index": len(chunks)
-                }
-            })
+        # Add remaining group
+        if current_group:
+            chunk_text = " ".join([e.text for e in current_group])
+            chunk_metadata = {
+                "chunk_strategy": chunk_strategy,
+                "source_elements": [e.id for e in current_group],
+                "element_types": list(set([e.type for e in current_group])),
+                "pages": list(set([e.metadata.get("page_number", 1) for e in current_group]))
+            }
+            
+            chunk = DocumentChunk(
+                text=chunk_text,
+                metadata=chunk_metadata,
+                source_elements=[e.id for e in current_group],
+                chunk_index=len(chunks),
+                tokens=len(chunk_text.split())
+            )
+            chunks.append(chunk)
     
-    elif strategy == "by_page":
+    elif chunk_strategy == "by_page":
         # Group by page numbers
         page_groups = {}
         for element in elements:
-            page = element["metadata"].get("page_number", 1)
+            page = element.metadata.get("page_number", 1)
             if page not in page_groups:
                 page_groups[page] = []
             page_groups[page].append(element)
         
         for page, page_elements in page_groups.items():
-            chunks.append({
-                "text": " ".join([e["text"] for e in page_elements]),
-                "type": "chunk",
-                "metadata": {
-                    "chunk_strategy": strategy,
-                    "page_number": page,
-                    "element_count": len(page_elements),
-                    "chunk_index": len(chunks)
-                }
-            })
+            chunk_text = " ".join([e.text for e in page_elements])
+            chunk_metadata = {
+                "chunk_strategy": chunk_strategy,
+                "page_number": page,
+                "source_elements": [e.id for e in page_elements],
+                "element_count": len(page_elements)
+            }
+            
+            chunk = DocumentChunk(
+                text=chunk_text,
+                metadata=chunk_metadata,
+                source_elements=[e.id for e in page_elements],
+                chunk_index=len(chunks),
+                tokens=len(chunk_text.split())
+            )
+            chunks.append(chunk)
     
-    else:  # fixed_size
-        current_text = ""
-        for element in elements:
-            if len(current_text) + len(element["text"]) > chunk_size:
-                if current_text:
-                    chunks.append({
-                        "text": current_text,
-                        "type": "chunk",
-                        "metadata": {
-                            "chunk_strategy": strategy,
-                            "chunk_size": len(current_text),
-                            "chunk_index": len(chunks)
-                        }
-                    })
-                current_text = element["text"]
-            else:
-                current_text += " " + element["text"]
+    # Apply context merging if enabled
+    if context_merge and len(chunks) > 1:
+        merged_chunks = []
+        i = 0
+        while i < len(chunks):
+            current_chunk = chunks[i]
+            context_text = current_chunk.text
+            source_elements = current_chunk.source_elements.copy()
+            
+            # Look ahead for context
+            if i > 0:
+                prev_chunk = chunks[i-1]
+                context_text = prev_chunk.text[-200:] + " " + context_text
+                
+            if i < len(chunks) - 1:
+                next_chunk = chunks[i+1]
+                context_text = context_text + " " + next_chunk.text[:200]
+            
+            enhanced_chunk = DocumentChunk(
+                text=context_text,
+                metadata={
+                    **current_chunk.metadata,
+                    "context_merged": True,
+                    "original_chunk_id": current_chunk.id
+                },
+                source_elements=source_elements,
+                chunk_index=i,
+                tokens=len(context_text.split())
+            )
+            merged_chunks.append(enhanced_chunk)
+            i += 1
         
-        if current_text:
-            chunks.append({
-                "text": current_text,
-                "type": "chunk",
-                "metadata": {
-                    "chunk_strategy": strategy,
-                    "chunk_size": len(current_text),
-                    "chunk_index": len(chunks)
-                }
-            })
+        return merged_chunks
     
     return chunks
 
@@ -455,243 +605,310 @@ async def store_in_vector_db(texts: List[str], embeddings: List[List[float]], co
         logging.error(f"Error storing in vector DB ({connector_type}): {e}")
         return False
 
-# Enhanced API Routes for enterprise features
+# Enhanced API Routes
 
 @api_router.get("/")
 async def root():
     return {"message": "Unstructured Enterprise Workflow API", "status": "running", "version": "2.0.0"}
 
-# Data Source Connectors
-@api_router.post("/connectors/feishu/test")
-async def test_feishu_connection(config: DataSourceConfig):
-    """Test Feishu connection"""
+# Document Processing APIs
+@api_router.post("/documents/process")
+async def process_document_with_metadata(
+    file: UploadFile = File(...),
+    strategy: str = "auto",
+    extract_metadata: bool = True
+):
+    """Process document with enhanced metadata extraction"""
     try:
-        # Simulate Feishu API test
-        if config.feishu_app_id and config.feishu_app_secret:
-            return {
-                "status": "success",
-                "message": "飞书连接测试成功",
-                "documents_found": 42,
-                "last_sync": datetime.utcnow().isoformat()
-            }
-        else:
-            return {
-                "status": "error",
-                "message": "缺少必要的飞书认证信息"
-            }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"飞书连接测试失败: {str(e)}"
-        }
-
-@api_router.post("/connectors/wechat_work/test")
-async def test_wechat_work_connection(config: DataSourceConfig):
-    """Test WeChat Work connection"""
-    try:
-        # Simulate WeChat Work API test
-        if config.corp_id and config.corp_secret:
-            return {
-                "status": "success",
-                "message": "企业微信连接测试成功",
-                "documents_found": 18,
-                "departments": 5
-            }
-        else:
-            return {
-                "status": "error",
-                "message": "缺少必要的企业微信认证信息"
-            }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"企业微信连接测试失败: {str(e)}"
-        }
-
-@api_router.post("/connectors/api/test")
-async def test_api_connection(config: DataSourceConfig):
-    """Test API endpoint connection"""
-    try:
-        if config.api_endpoint:
-            # Simulate API endpoint test
-            return {
-                "status": "success",
-                "message": "API连接测试成功",
-                "endpoint": config.api_endpoint,
-                "response_time": "245ms"
-            }
-        else:
-            return {
-                "status": "error",
-                "message": "缺少API端点地址"
-            }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"API连接测试失败: {str(e)}"
-        }
-
-# Model Configuration APIs
-@api_router.post("/models/llm/test")
-async def test_llm_model(config: LLMConfig):
-    """Test LLM model configuration"""
-    try:
-        # Simulate LLM test
-        test_prompt = "测试提示：请简要介绍人工智能。"
+        # Save uploaded file
+        file_id = str(uuid.uuid4())
+        file_extension = Path(file.filename).suffix
+        safe_filename = f"{file_id}{file_extension}"
+        file_path = UPLOAD_DIR / safe_filename
+        
+        async with aiofiles.open(file_path, 'wb') as f:
+            content = await file.read()
+            await f.write(content)
+        
+        # Configure metadata extraction
+        metadata_config = MetadataExtractionConfig(
+            extract_tables=extract_metadata,
+            extract_images=extract_metadata,
+            extract_font_info=extract_metadata
+        )
+        
+        # Process document
+        processed_doc = await asyncio.get_event_loop().run_in_executor(
+            executor, extract_text_from_file_with_metadata, str(file_path), strategy, metadata_config
+        )
+        
+        # Store in database
+        await db.documents.insert_one(processed_doc.dict())
+        
+        # Create visualization
+        visualization = create_document_visualization(processed_doc)
         
         return {
-            "status": "success",
-            "message": f"{config.llm_provider} {config.model_name} 模型测试成功",
-            "test_prompt": test_prompt,
-            "response_preview": "人工智能(AI)是计算机科学的一个分支，致力于创建能够模拟人类智能行为的系统...",
-            "response_time": "1.2s",
-            "tokens_used": 156
+            "document": processed_doc,
+            "visualization": visualization
         }
+        
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"LLM模型测试失败: {str(e)}"
-        }
+        raise HTTPException(status_code=500, detail=f"Document processing failed: {str(e)}")
 
-@api_router.post("/models/vision/test")
-async def test_vision_model(config: VisionConfig):
-    """Test Vision model configuration"""
+@api_router.get("/documents/{document_id}")
+async def get_document(document_id: str):
+    """Get processed document by ID"""
     try:
-        # Simulate Vision model test
-        return {
-            "status": "success",
-            "message": f"{config.vision_provider} 视觉模型测试成功",
-            "capabilities": {
-                "ocr": config.ocr_enabled,
-                "layout_detection": config.layout_detection,
-                "table_extraction": config.table_extraction,
-                "image_description": config.image_description
-            },
-            "supported_languages": ["zh", "en", "ja", "ko"] if config.ocr_language == "auto" else [config.ocr_language],
-            "response_time": "0.8s"
-        }
+        document = await db.documents.find_one({"id": document_id})
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Remove MongoDB ObjectId
+        if "_id" in document:
+            del document["_id"]
+        
+        return document
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"视觉模型测试失败: {str(e)}"
-        }
+        raise HTTPException(status_code=500, detail=f"Error retrieving document: {str(e)}")
 
-@api_router.post("/models/embedding/test")
-async def test_embedding_model(config: EmbeddingConfig):
-    """Test Embedding model configuration"""
+@api_router.get("/documents/{document_id}/visualization")
+async def get_document_visualization(document_id: str):
+    """Get document visualization for before/after comparison"""
     try:
-        # Simulate embedding test
-        test_text = "这是一个测试文本，用于验证嵌入模型的功能。"
+        document = await db.documents.find_one({"id": document_id})
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Remove MongoDB ObjectId
+        if "_id" in document:
+            del document["_id"]
+        
+        processed_doc = ProcessedDocument(**document)
+        visualization = create_document_visualization(processed_doc)
+        
+        return visualization
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating visualization: {str(e)}")
+
+@api_router.post("/documents/{document_id}/chunks")
+async def create_document_chunks(
+    document_id: str,
+    chunk_strategy: str = "by_title",
+    chunk_size: int = 1000,
+    context_merge: bool = False
+):
+    """Create intelligent chunks from document elements"""
+    try:
+        document = await db.documents.find_one({"id": document_id})
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Remove MongoDB ObjectId
+        if "_id" in document:
+            del document["_id"]
+        
+        processed_doc = ProcessedDocument(**document)
+        
+        # Create chunks
+        chunks = await asyncio.get_event_loop().run_in_executor(
+            executor, create_intelligent_chunks, processed_doc.elements, chunk_strategy, chunk_size, context_merge
+        )
+        
+        # Store chunks in database
+        chunks_data = [chunk.dict() for chunk in chunks]
+        await db.chunks.insert_many(chunks_data)
         
         return {
-            "status": "success",
-            "message": f"{config.embedding_provider} 嵌入模型测试成功",
-            "model": config.embedding_model,
-            "dimensions": config.dimensions,
-            "test_text": test_text,
-            "embedding_preview": [0.123, -0.456, 0.789, "..."],
-            "processing_time": "0.3s"
+            "document_id": document_id,
+            "chunks": chunks,
+            "total_chunks": len(chunks),
+            "strategy": chunk_strategy
         }
+        
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"嵌入模型测试失败: {str(e)}"
-        }
+        raise HTTPException(status_code=500, detail=f"Error creating chunks: {str(e)}")
 
-# Vector Database Connection Tests
-@api_router.post("/vectordb/test")
-async def test_vector_db_connection(config: ConnectorConfig):
-    """Test vector database connection"""
+@api_router.get("/documents/{document_id}/chunks")
+async def get_document_chunks(document_id: str):
+    """Get all chunks for a document"""
     try:
-        # Simulate vector DB test
-        return {
-            "status": "success",
-            "message": f"{config.connector_type} 向量数据库连接成功",
-            "connection_url": config.connection_url or "本地实例",
-            "collection": config.collection_name,
-            "index_status": "healthy",
-            "total_vectors": 1250,
-            "dimensions": 1536
-        }
+        chunks = await db.chunks.find({"metadata.document_id": document_id}).to_list(1000)
+        
+        # Remove MongoDB ObjectId from each chunk
+        for chunk in chunks:
+            if "_id" in chunk:
+                del chunk["_id"]
+        
+        return chunks
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"向量数据库连接失败: {str(e)}"
-        }
+        raise HTTPException(status_code=500, detail=f"Error retrieving chunks: {str(e)}")
 
-# Enhanced Batch Processing
-@api_router.post("/batch/upload")
-async def batch_upload_documents():
-    """Batch upload multiple documents"""
+@api_router.put("/chunks/{chunk_id}/edit")
+async def edit_chunk(chunk_id: str, edit: ChunkEdit):
+    """Edit a document chunk"""
     try:
-        # Simulate batch upload
-        return {
-            "batch_id": str(uuid.uuid4()),
-            "status": "processing",
-            "total_files": 25,
-            "processed": 0,
-            "estimated_time": "15 minutes",
-            "created_at": datetime.utcnow().isoformat()
+        # Find the chunk
+        chunk = await db.chunks.find_one({"id": chunk_id})
+        if not chunk:
+            raise HTTPException(status_code=404, detail="Chunk not found")
+        
+        # Create edit history entry
+        edit_entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "original_text": chunk["text"],
+            "new_text": edit.new_text,
+            "edit_reason": edit.edit_reason,
+            "editor": "user"  # In real app, get from auth
         }
+        
+        # Update chunk
+        update_data = {
+            "text": edit.new_text,
+            "is_edited": True,
+            "$push": {"edit_history": edit_entry}
+        }
+        
+        result = await db.chunks.update_one(
+            {"id": chunk_id},
+            {"$set": update_data}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="Chunk not found")
+        
+        # Get updated chunk
+        updated_chunk = await db.chunks.find_one({"id": chunk_id})
+        if "_id" in updated_chunk:
+            del updated_chunk["_id"]
+        
+        return updated_chunk
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"批量上传失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error editing chunk: {str(e)}")
 
-@api_router.get("/batch/{batch_id}/status")
-async def get_batch_status(batch_id: str):
-    """Get batch processing status"""
+@api_router.get("/documents/{document_id}/compare")
+async def compare_document_processing(document_id: str):
+    """Compare original vs processed document elements"""
     try:
-        # Simulate batch status
-        return {
-            "batch_id": batch_id,
-            "status": "completed",
-            "total_files": 25,
-            "processed": 25,
-            "successful": 23,
-            "failed": 2,
-            "processing_time": "12 minutes",
-            "results": {
-                "total_documents": 23,
-                "total_chunks": 456,
-                "total_embeddings": 456,
-                "storage_collections": ["batch_documents_001"]
-            }
-        }
+        document = await db.documents.find_one({"id": document_id})
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Remove MongoDB ObjectId
+        if "_id" in document:
+            del document["_id"]
+        
+        processed_doc = ProcessedDocument(**document)
+        
+        # Create before/after comparison
+        before_elements = []
+        after_elements = []
+        changes = []
+        
+        for element in processed_doc.elements:
+            # Simulate original element (before processing)
+            before_element = DocumentElement(
+                id=element.id + "_original",
+                type=element.type,
+                text=element.original_text or element.text,
+                metadata={**element.metadata, "processed": False},
+                coordinates=element.coordinates,
+                confidence=element.confidence,
+                original_text=element.original_text or element.text
+            )
+            before_elements.append(before_element)
+            
+            # After element (processed)
+            after_elements.append(element)
+            
+            # Detect changes
+            if element.original_text and element.original_text != element.text:
+                changes.append({
+                    "element_id": element.id,
+                    "type": "text_modification",
+                    "before": element.original_text,
+                    "after": element.text,
+                    "reason": "text_cleaning"
+                })
+        
+        # Create visualization
+        visualization = create_document_visualization(processed_doc)
+        
+        comparison = DocumentComparison(
+            document_id=document_id,
+            before_elements=before_elements,
+            after_elements=after_elements,
+            changes=changes,
+            visualization=visualization
+        )
+        
+        return comparison
+        
     except Exception as e:
-        raise HTTPException(status_code=404, detail=f"批次状态查询失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating comparison: {str(e)}")
 
-# Enhanced System Information
-@api_router.get("/system/info")
-async def get_system_info():
-    """Get comprehensive system information"""
-    return {
-        "version": "2.0.0",
-        "unstructured_version": "0.15.13",
-        "capabilities": {
-            "document_formats": ["PDF", "DOCX", "HTML", "EML", "PPTX", "TXT", "MD"],
-            "processing_strategies": ["AUTO", "HI_RES", "FAST", "OCR_ONLY"],
-            "llm_providers": ["OpenAI", "Anthropic", "Azure", "Ollama", "通义千问", "文心一言"],
-            "vision_providers": ["OpenAI GPT-4V", "Claude 3 Vision", "Google Gemini", "Azure"],
-            "embedding_providers": ["OpenAI", "Azure", "Cohere", "Hugging Face", "Sentence Transformers"],
-            "vector_databases": ["Qdrant", "Pinecone", "Weaviate", "Chroma", "Elasticsearch", "MongoDB"],
-            "data_sources": ["文件上传", "飞书", "企业微信", "S3/MinIO", "API接口", "数据库"]
-        },
-        "performance": {
-            "max_concurrent_workflows": 100,
-            "max_file_size": "2GB",
-            "avg_processing_time": "2.3s/MB",
-            "uptime": "99.5%"
-        },
-        "enterprise_features": {
-            "batch_processing": True,
-            "api_integration": True,
-            "custom_models": True,
-            "audit_logging": True,
-            "rbac": True,
-            "sso": True
-        }
-    }
+@api_router.post("/documents/{document_id}/export")
+async def export_processed_document(document_id: str, format: str = "json"):
+    """Export processed document in various formats"""
+    try:
+        document = await db.documents.find_one({"id": document_id})
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Remove MongoDB ObjectId
+        if "_id" in document:
+            del document["_id"]
+        
+        if format == "json":
+            # Export as JSON
+            filename = f"processed_document_{document_id}.json"
+            file_path = UPLOAD_DIR / filename
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(document, f, ensure_ascii=False, indent=2, default=str)
+            
+            return FileResponse(
+                path=str(file_path),
+                filename=filename,
+                media_type='application/json'
+            )
+        
+        elif format == "zip":
+            # Export as ZIP with all elements
+            filename = f"processed_document_{document_id}.zip"
+            file_path = UPLOAD_DIR / filename
+            
+            with zipfile.ZipFile(file_path, 'w') as zipf:
+                # Add main document
+                zipf.writestr("document.json", json.dumps(document, ensure_ascii=False, indent=2, default=str))
+                
+                # Add chunks if available
+                chunks = await db.chunks.find({"metadata.document_id": document_id}).to_list(1000)
+                if chunks:
+                    for chunk in chunks:
+                        if "_id" in chunk:
+                            del chunk["_id"]
+                    zipf.writestr("chunks.json", json.dumps(chunks, ensure_ascii=False, indent=2, default=str))
+                
+                # Add visualization data
+                processed_doc = ProcessedDocument(**document)
+                visualization = create_document_visualization(processed_doc)
+                zipf.writestr("visualization.json", json.dumps(visualization.dict(), ensure_ascii=False, indent=2, default=str))
+            
+            return FileResponse(
+                path=str(file_path),
+                filename=filename,
+                media_type='application/zip'
+            )
+        
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported format")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error exporting document: {str(e)}")
 
-# Workflow Management
+# Continue with existing workflow APIs...
 @api_router.post("/workflows", response_model=Workflow)
 async def create_workflow(workflow: WorkflowCreate):
     workflow_dict = workflow.dict()
@@ -708,70 +925,6 @@ async def get_workflows():
             del workflow["_id"]
     return [Workflow(**workflow) for workflow in workflows]
 
-@api_router.get("/workflows/{workflow_id}", response_model=Workflow)
-async def get_workflow(workflow_id: str):
-    workflow = await db.workflows.find_one({"id": workflow_id})
-    if not workflow:
-        raise HTTPException(status_code=404, detail="Workflow not found")
-    # Remove MongoDB ObjectId
-    if "_id" in workflow:
-        del workflow["_id"]
-    return Workflow(**workflow)
-
-@api_router.put("/workflows/{workflow_id}", response_model=Workflow)
-async def update_workflow(workflow_id: str, workflow: WorkflowCreate):
-    workflow_dict = workflow.dict()
-    workflow_dict["updated_at"] = datetime.utcnow()
-    
-    result = await db.workflows.update_one(
-        {"id": workflow_id},
-        {"$set": workflow_dict}
-    )
-    
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Workflow not found")
-    
-    updated_workflow = await db.workflows.find_one({"id": workflow_id})
-    # Remove MongoDB ObjectId
-    if "_id" in updated_workflow:
-        del updated_workflow["_id"]
-    return Workflow(**updated_workflow)
-
-# File Upload
-@api_router.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
-    try:
-        # Generate unique filename
-        file_id = str(uuid.uuid4())
-        file_extension = Path(file.filename).suffix
-        safe_filename = f"{file_id}{file_extension}"
-        file_path = UPLOAD_DIR / safe_filename
-        
-        # Save file
-        async with aiofiles.open(file_path, 'wb') as f:
-            content = await file.read()
-            await f.write(content)
-        
-        # Simple file type detection
-        file_type = "text/plain"
-        if file_extension.lower() in ['.pdf']:
-            file_type = "application/pdf"
-        elif file_extension.lower() in ['.docx']:
-            file_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        elif file_extension.lower() in ['.txt', '.md']:
-            file_type = "text/plain"
-        
-        return {
-            "file_id": file_id,
-            "filename": file.filename,
-            "file_path": str(file_path),
-            "file_type": file_type,
-            "size": len(content)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
-
-# Workflow Execution
 @api_router.post("/workflows/{workflow_id}/execute")
 async def execute_workflow(workflow_id: str, background_tasks: BackgroundTasks):
     # Create execution record
@@ -779,7 +932,7 @@ async def execute_workflow(workflow_id: str, background_tasks: BackgroundTasks):
     await db.executions.insert_one(execution.dict())
     
     # Start background task
-    background_tasks.add_task(process_workflow, execution.id, workflow_id)
+    background_tasks.add_task(process_workflow_enhanced, execution.id, workflow_id)
     
     return {"execution_id": execution.id, "status": "started"}
 
@@ -795,8 +948,8 @@ async def get_execution_status(execution_id: str):
     
     return execution
 
-async def process_workflow(execution_id: str, workflow_id: str):
-    """Enhanced background task to process workflow with real Unstructured pipeline"""
+async def process_workflow_enhanced(execution_id: str, workflow_id: str):
+    """Enhanced background task to process workflow with full metadata extraction"""
     try:
         # Update status to running
         await db.executions.update_one(
@@ -811,16 +964,18 @@ async def process_workflow(execution_id: str, workflow_id: str):
         
         workflow_obj = Workflow(**workflow)
         
-        # Enhanced execution logic following Unstructured pipeline
+        # Enhanced execution logic with metadata extraction
         results = {
             "pipeline_stages": [],
             "processing_details": {},
-            "performance_metrics": {}
+            "performance_metrics": {},
+            "documents_processed": [],
+            "visualizations": []
         }
         
         start_time = time.time()
         
-        # Stage 1: Data Source Processing
+        # Stage 1: Enhanced Document Processing
         datasource_nodes = [node for node in workflow_obj.nodes if node.type == "datasource"]
         all_documents = []
         
@@ -830,17 +985,27 @@ async def process_workflow(execution_id: str, workflow_id: str):
                 processing_strategy = node.data.get("processing_strategy", "auto")
                 
                 if Path(file_path).exists():
-                    # Extract with specified strategy
-                    elements = await asyncio.get_event_loop().run_in_executor(
-                        executor, extract_text_from_file, file_path, processing_strategy
+                    # Enhanced processing with metadata
+                    metadata_config = MetadataExtractionConfig()
+                    processed_doc = await asyncio.get_event_loop().run_in_executor(
+                        executor, extract_text_from_file_with_metadata, file_path, processing_strategy, metadata_config
                     )
-                    all_documents.extend(elements)
+                    
+                    all_documents.append(processed_doc)
+                    
+                    # Store processed document
+                    await db.documents.insert_one(processed_doc.dict())
+                    
+                    # Create visualization
+                    visualization = create_document_visualization(processed_doc)
+                    results["visualizations"].append(visualization.dict())
                     
                     results["pipeline_stages"].append({
-                        "stage": "document_partitioning",
+                        "stage": "enhanced_document_processing",
                         "strategy": processing_strategy,
-                        "elements_extracted": len(elements),
-                        "file_processed": Path(file_path).name
+                        "elements_extracted": len(processed_doc.elements),
+                        "file_processed": processed_doc.filename,
+                        "metadata_extracted": True
                     })
         
         await db.executions.update_one(
@@ -848,70 +1013,63 @@ async def process_workflow(execution_id: str, workflow_id: str):
             {"$set": {"progress": 25}}
         )
         
-        # Stage 2: Cleaning (if cleaning node exists)
-        cleaning_nodes = [node for node in workflow_obj.nodes if node.type == "cleaning"]
-        if cleaning_nodes and all_documents:
-            cleaned_documents = await asyncio.get_event_loop().run_in_executor(
-                executor, clean_extracted_elements, all_documents
-            )
-            all_documents = cleaned_documents
-            
-            results["pipeline_stages"].append({
-                "stage": "document_cleaning",
-                "elements_before": len(all_documents),
-                "elements_after": len(cleaned_documents),
-                "cleaning_applied": True
-            })
-        
-        await db.executions.update_one(
-            {"id": execution_id},
-            {"$set": {"progress": 40}}
-        )
-        
-        # Stage 3: Chunking (if chunking node exists)
+        # Stage 2: Intelligent Chunking
         chunking_nodes = [node for node in workflow_obj.nodes if node.type == "chunking"]
-        chunks = []
+        all_chunks = []
         
         if chunking_nodes and all_documents:
             chunking_node = chunking_nodes[0]
             chunk_strategy = chunking_node.data.get("chunk_strategy", "by_title")
             chunk_size = chunking_node.data.get("chunk_size", 1000)
+            context_merge = chunking_node.data.get("context_merge", False)
             
-            chunks = await asyncio.get_event_loop().run_in_executor(
-                executor, chunk_elements, all_documents, chunk_strategy, chunk_size
-            )
+            for document in all_documents:
+                chunks = await asyncio.get_event_loop().run_in_executor(
+                    executor, create_intelligent_chunks, document.elements, chunk_strategy, chunk_size, context_merge
+                )
+                
+                # Store chunks
+                chunks_data = [chunk.dict() for chunk in chunks]
+                await db.chunks.insert_many(chunks_data)
+                
+                all_chunks.extend(chunks)
             
             results["pipeline_stages"].append({
                 "stage": "intelligent_chunking",
                 "strategy": chunk_strategy,
                 "chunk_size": chunk_size,
-                "chunks_created": len(chunks),
-                "original_elements": len(all_documents)
+                "context_merge": context_merge,
+                "chunks_created": len(all_chunks),
+                "documents_chunked": len(all_documents)
             })
-        else:
-            # Convert documents to chunks if no chunking node
-            chunks = [{"text": doc["text"], "metadata": doc["metadata"]} for doc in all_documents]
         
         await db.executions.update_one(
             {"id": execution_id},
             {"$set": {"progress": 60}}
         )
         
-        # Stage 4: Embedding Generation (if embedding node exists)
+        # Stage 3: Enhanced Embedding Generation
         embedding_nodes = [node for node in workflow_obj.nodes if node.type == "embedding"]
         embeddings = []
         
-        if embedding_nodes and chunks:
+        if embedding_nodes and all_chunks:
             embedding_node = embedding_nodes[0]
-            model_type = embedding_node.data.get("model_type", "openai")
+            model_type = embedding_node.data.get("embedding_provider", "openai")
             
-            texts = [chunk["text"] for chunk in chunks]
+            texts = [chunk.text for chunk in all_chunks]
             embeddings = await asyncio.get_event_loop().run_in_executor(
                 executor, generate_embeddings, texts, model_type
             )
             
+            # Update chunks with embeddings
+            for chunk, embedding in zip(all_chunks, embeddings):
+                await db.chunks.update_one(
+                    {"id": chunk.id},
+                    {"$set": {"embedding": embedding}}
+                )
+            
             results["pipeline_stages"].append({
-                "stage": "embedding_generation",
+                "stage": "enhanced_embedding_generation",
                 "model_type": model_type,
                 "embeddings_generated": len(embeddings),
                 "vector_dimensions": len(embeddings[0]) if embeddings else 0
@@ -922,46 +1080,52 @@ async def process_workflow(execution_id: str, workflow_id: str):
             {"$set": {"progress": 80}}
         )
         
-        # Stage 5: Vector Storage (if connector node exists)
+        # Stage 4: Vector Storage
         connector_nodes = [node for node in workflow_obj.nodes if node.type == "connector"]
         
-        if connector_nodes and chunks and embeddings:
+        if connector_nodes and all_chunks and embeddings:
             connector_node = connector_nodes[0]
             connector_type = connector_node.data.get("connector_type", "qdrant")
             
-            texts = [chunk["text"] for chunk in chunks]
+            texts = [chunk.text for chunk in all_chunks]
             collection_name = f"workflow_{workflow_id}"
             
             success = await store_in_vector_db(texts, embeddings, collection_name, connector_type)
             
             results["pipeline_stages"].append({
-                "stage": "vector_storage",
+                "stage": "enhanced_vector_storage",
                 "connector_type": connector_type,
                 "collection_name": collection_name,
                 "documents_stored": len(texts),
                 "storage_success": success
             })
         
-        # Calculate performance metrics
+        # Calculate enhanced performance metrics
         end_time = time.time()
         processing_time = end_time - start_time
         
         results["performance_metrics"] = {
             "total_processing_time": round(processing_time, 2),
             "documents_processed": len(all_documents),
-            "chunks_created": len(chunks),
+            "elements_extracted": sum([len(doc.elements) for doc in all_documents]),
+            "chunks_created": len(all_chunks),
             "embeddings_generated": len(embeddings),
-            "throughput_docs_per_second": round(len(all_documents) / processing_time, 2) if processing_time > 0 else 0
+            "throughput_docs_per_second": round(len(all_documents) / processing_time, 2) if processing_time > 0 else 0,
+            "avg_elements_per_doc": round(sum([len(doc.elements) for doc in all_documents]) / len(all_documents), 2) if all_documents else 0
         }
         
         results["processing_details"] = {
-            "total_elements": len(all_documents),
-            "total_chunks": len(chunks),
+            "total_documents": len(all_documents),
+            "total_elements": sum([len(doc.elements) for doc in all_documents]),
+            "total_chunks": len(all_chunks),
             "total_embeddings": len(embeddings),
             "pipeline_completed": True,
             "unstructured_version": "0.15.13",
-            "processing_summary": f"Successfully processed {len(all_documents)} elements through {len(results['pipeline_stages'])} pipeline stages"
+            "enhanced_features": ["metadata_extraction", "intelligent_chunking", "visualization", "editing_support"],
+            "processing_summary": f"Successfully processed {len(all_documents)} documents with {sum([len(doc.elements) for doc in all_documents])} elements through {len(results['pipeline_stages'])} enhanced pipeline stages"
         }
+        
+        results["documents_processed"] = [doc.dict() for doc in all_documents]
         
         # Update completion
         await db.executions.update_one(
@@ -984,38 +1148,6 @@ async def process_workflow(execution_id: str, workflow_id: str):
             }}
         )
 
-# Model Configuration
-@api_router.post("/models", response_model=ModelConfig)
-async def create_model_config(model: ModelConfigCreate):
-    model_dict = model.dict()
-    model_obj = ModelConfig(**model_dict)
-    await db.models.insert_one(model_obj.dict())
-    return model_obj
-
-@api_router.get("/models", response_model=List[ModelConfig])
-async def get_model_configs():
-    models = await db.models.find().to_list(1000)
-    # Remove MongoDB ObjectId from each model
-    for model in models:
-        if "_id" in model:
-            del model["_id"]
-    return [ModelConfig(**model) for model in models]
-
-# Health check for vector database
-@api_router.get("/health/vector-db")
-async def check_vector_db():
-    try:
-        collections_count = len(vector_storage.keys())
-        total_documents = sum(len(docs) for docs in vector_storage.values())
-        return {
-            "status": "healthy", 
-            "collections": collections_count,
-            "total_documents": total_documents,
-            "storage_type": "in-memory"
-        }
-    except Exception as e:
-        return {"status": "unhealthy", "error": str(e)}
-
 # Include the router in the main app
 app.include_router(api_router)
 
@@ -1036,8 +1168,8 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("Starting Unstructured Workflow API")
-    logger.info("Using in-memory vector storage for demo")
+    logger.info("Starting Unstructured Enterprise Workflow API with enhanced features")
+    logger.info("Features: metadata extraction, document visualization, chunk editing, export capabilities")
     
     # Initialize demo data
     vector_storage["demo_collection"] = []
