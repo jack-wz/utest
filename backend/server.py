@@ -9,6 +9,38 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional, Any
 import uuid
+class MetadataExtractionConfig(BaseModel):
+    """Configuration for metadata extraction during document processing"""
+    extract_font_info: bool = False
+    extract_tables: bool = False
+    extract_images: bool = False
+
+class DocumentElement(BaseModel):
+    """Represents a processed document element with metadata"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    type: str
+    text: str
+    metadata: Dict[str, Any]
+    coordinates: Dict[str, int]
+    confidence: float
+    original_text: str = ""
+
+class ProcessedDocument(BaseModel):
+    """Represents a fully processed document with all elements and metadata"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    filename: str
+    file_path: str
+    processing_strategy: str
+    elements: List[DocumentElement]
+    metadata: Dict[str, Any]
+
+class DocumentVisualization(BaseModel):
+    """Represents visualization data for document processing comparison"""
+    document_id: str
+    original_layout: Dict[str, Any]
+    processed_layout: Dict[str, Any]
+    element_mapping: Dict[str, str]
+
 from datetime import datetime
 import json
 import aiofiles
