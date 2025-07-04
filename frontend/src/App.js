@@ -51,10 +51,11 @@ import {
   PencilIcon
 } from '@heroicons/react/24/outline';
 
-// Import新的页面组件
+// Import页面组件
 import WorkflowEditor from './components/WorkflowEditor';
 import ResultsPage from './components/ResultsPage';
 import ComparisonPage from './components/ComparisonPage';
+import DocumentVisualizationPage from './components/DocumentVisualizationPage';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
