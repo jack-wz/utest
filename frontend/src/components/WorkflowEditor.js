@@ -314,28 +314,19 @@ function WorkflowEditor() {
     [setNodes]
   );
 
-  // 初始化文件上传处理器
-  useEffect(() => {
-    setNodes(nds => nds.map(node => ({
-      ...node,
-      data: {
-        ...node.data,
-        onFileUpload: node.type === 'datasource' ? handleFileUpload : node.data.onFileUpload
-      }
-    })));
-  }, [handleFileUpload]);
+  const onEdgesChange = useCallback(
+    (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
+    [setEdges]
+  );
 
-  // 初始化文件上传处理器
-  useEffect(() => {
-    setNodes(nds => nds.map(node => ({
-      ...node,
-      data: {
-        ...node.data,
-        onFileUpload: node.type === 'datasource' ? handleFileUpload : node.data.onFileUpload
-      }
-    })));
-  }, [handleFileUpload]);
-
+  const onConnect = useCallback(
+    (connection) => setEdges((eds) => addEdge({ 
+      ...connection, 
+      id: uuidv4(),
+      animated: true
+    }, eds)),
+    [setEdges]
+  );
 
   // 初始化文件上传处理器
   useEffect(() => {
