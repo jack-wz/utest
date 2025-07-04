@@ -309,6 +309,17 @@ function WorkflowEditor() {
     }
   }, [navigate]);
 
+  // 初始化文件上传处理器
+  useEffect(() => {
+    setNodes(nds => nds.map(node => ({
+      ...node,
+      data: {
+        ...node.data,
+        onFileUpload: node.type === 'datasource' ? handleFileUpload : node.data.onFileUpload
+      }
+    })));
+  }, [handleFileUpload]);
+
 
   // 初始化文件上传处理器
   useEffect(() => {
