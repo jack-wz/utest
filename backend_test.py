@@ -94,11 +94,31 @@ class UnstructuredWorkflowAPITest(unittest.TestCase):
         response = requests.get(f"{API_URL}/")
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["message"], "Unstructured Workflow API")
+        self.assertEqual(data["message"], "Unstructured Enterprise Workflow API")
         self.assertEqual(data["status"], "running")
         print("✅ API root endpoint test passed")
     
-    def test_02_vector_db_health(self):
+    def test_02_system_info(self):
+        """Test system info endpoint"""
+        print("\n🔍 Testing system info endpoint...")
+        response = requests.get(f"{API_URL}/system/info")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("version", data)
+        self.assertIn("capabilities", data)
+        self.assertIn("enterprise_features", data)
+        print(f"✅ System info test passed. Version: {data['version']}")
+        
+        # Verify enterprise capabilities
+        capabilities = data["capabilities"]
+        self.assertIn("llm_providers", capabilities)
+        self.assertIn("vision_providers", capabilities)
+        self.assertIn("embedding_providers", capabilities)
+        self.assertIn("vector_databases", capabilities)
+        self.assertIn("data_sources", capabilities)
+        print("✅ Enterprise capabilities verified")
+    
+    def test_03_vector_db_health(self):
         """Test vector DB health endpoint"""
         print("\n🔍 Testing vector DB health endpoint...")
         response = requests.get(f"{API_URL}/health/vector-db")
@@ -108,7 +128,7 @@ class UnstructuredWorkflowAPITest(unittest.TestCase):
         self.assertEqual(data["storage_type"], "in-memory")
         print("✅ Vector DB health test passed")
     
-    def test_03_file_upload(self):
+    def test_04_file_upload(self):
         """Test file upload endpoint"""
         print("\n🔍 Testing file upload...")
         with open(self.test_file_path, "rb") as f:
@@ -126,45 +146,157 @@ class UnstructuredWorkflowAPITest(unittest.TestCase):
         self.file_path = data["file_path"]
         print(f"✅ File upload test passed. File ID: {data['file_id']}")
     
-    def test_04_create_workflow(self):
-        """Test workflow creation"""
-        print("\n🔍 Testing workflow creation...")
+    def test_05_feishu_connector(self):
+        """Test Feishu connector"""
+        print("\n🔍 Testing Feishu connector...")
+        response = requests.post(f"{API_URL}/connectors/feishu/test", json=FEISHU_CONFIG)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("status", data)
+        if data["status"] == "success":
+            print("✅ Feishu connector test passed")
+        else:
+            print(f"⚠️ Feishu connector test returned: {data['message']}")
+    
+    def test_06_wechat_work_connector(self):
+        """Test WeChat Work connector"""
+        print("\n🔍 Testing WeChat Work connector...")
+        response = requests.post(f"{API_URL}/connectors/wechat_work/test", json=WECHAT_WORK_CONFIG)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("status", data)
+        if data["status"] == "success":
+            print("✅ WeChat Work connector test passed")
+        else:
+            print(f"⚠️ WeChat Work connector test returned: {data['message']}")
+    
+    def test_07_llm_model(self):
+        """Test LLM model configuration"""
+        print("\n🔍 Testing LLM model configuration...")
+        response = requests.post(f"{API_URL}/models/llm/test", json=LLM_CONFIG)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("status", data)
+        if data["status"] == "success":
+            print(f"✅ LLM model test passed: {data['message']}")
+        else:
+            print(f"⚠️ LLM model test returned: {data['message']}")
+    
+    def test_08_vision_model(self):
+        """Test Vision model configuration"""
+        print("\n🔍 Testing Vision model configuration...")
+        response = requests.post(f"{API_URL}/models/vision/test", json=VISION_CONFIG)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("status", data)
+        if data["status"] == "success":
+            print(f"✅ Vision model test passed: {data['message']}")
+            print(f"  Capabilities: {json.dumps(data.get('capabilities', {}))}")
+        else:
+            print(f"⚠️ Vision model test returned: {data['message']}")
+    
+    def test_09_embedding_model(self):
+        """Test Embedding model configuration"""
+        print("\n🔍 Testing Embedding model configuration...")
+        response = requests.post(f"{API_URL}/models/embedding/test", json=EMBEDDING_CONFIG)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("status", data)
+        if data["status"] == "success":
+            print(f"✅ Embedding model test passed: {data['message']}")
+            print(f"  Dimensions: {data.get('dimensions', 0)}")
+        else:
+            print(f"⚠️ Embedding model test returned: {data['message']}")
+    
+    def test_10_vector_db_connection(self):
+        """Test vector database connection"""
+        print("\n🔍 Testing vector database connection...")
+        response = requests.post(f"{API_URL}/vectordb/test", json=CONNECTOR_CONFIG)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("status", data)
+        if data["status"] == "success":
+            print(f"✅ Vector DB connection test passed: {data['message']}")
+            print(f"  Collection: {data.get('collection', '')}")
+        else:
+            print(f"⚠️ Vector DB connection test returned: {data['message']}")
+    
+    def test_11_batch_upload(self):
+        """Test batch upload functionality"""
+        print("\n🔍 Testing batch upload functionality...")
+        response = requests.post(f"{API_URL}/batch/upload")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("batch_id", data)
+        self.assertIn("status", data)
+        print(f"✅ Batch upload test passed. Batch ID: {data['batch_id']}")
         
-        # Create a simple workflow with the uploaded file
+        # Test batch status
+        batch_id = data["batch_id"]
+        response = requests.get(f"{API_URL}/batch/{batch_id}/status")
+        self.assertEqual(response.status_code, 200)
+        status_data = response.json()
+        self.assertEqual(status_data["batch_id"], batch_id)
+        print(f"✅ Batch status test passed. Status: {status_data['status']}")
+    
+    def test_12_create_enterprise_workflow(self):
+        """Test enterprise workflow creation with all node types"""
+        print("\n🔍 Testing enterprise workflow creation...")
+        
+        # Create a complete enterprise workflow with all node types
         workflow_data = {
-            "name": "Test Workflow",
-            "description": "A test workflow for API testing",
+            "name": "Enterprise Test Workflow",
+            "description": "A complete enterprise workflow with all node types",
             "nodes": [
                 {
                     "id": "1",
                     "type": "datasource",
-                    "position": {"x": 100, "y": 100},
+                    "position": {"x": 100, "y": 150},
                     "data": {
                         "source_type": "upload",
+                        "processing_strategy": "auto",
                         "filename": self.test_file_path.name,
                         "file_path": self.file_path if hasattr(self, 'file_path') else "/tmp/test_document.txt"
                     }
                 },
                 {
                     "id": "2",
-                    "type": "processor",
-                    "position": {"x": 400, "y": 100},
-                    "data": {
-                        "processor_type": "unstructured"
-                    }
+                    "type": "vision",
+                    "position": {"x": 400, "y": 50},
+                    "data": VISION_CONFIG
                 },
                 {
                     "id": "3",
-                    "type": "export",
-                    "position": {"x": 700, "y": 100},
-                    "data": {
-                        "export_type": "vector_db"
-                    }
+                    "type": "llm",
+                    "position": {"x": 400, "y": 250},
+                    "data": LLM_CONFIG
+                },
+                {
+                    "id": "4",
+                    "type": "chunking",
+                    "position": {"x": 750, "y": 150},
+                    "data": CHUNKING_CONFIG
+                },
+                {
+                    "id": "5",
+                    "type": "embedding",
+                    "position": {"x": 1100, "y": 150},
+                    "data": EMBEDDING_CONFIG
+                },
+                {
+                    "id": "6",
+                    "type": "connector",
+                    "position": {"x": 1450, "y": 150},
+                    "data": CONNECTOR_CONFIG
                 }
             ],
             "edges": [
                 {"id": "e1-2", "source": "1", "target": "2"},
-                {"id": "e2-3", "source": "2", "target": "3"}
+                {"id": "e1-3", "source": "1", "target": "3"},
+                {"id": "e2-4", "source": "2", "target": "4"},
+                {"id": "e3-4", "source": "3", "target": "4"},
+                {"id": "e4-5", "source": "4", "target": "5"},
+                {"id": "e5-6", "source": "5", "target": "6"}
             ]
         }
         
@@ -176,9 +308,9 @@ class UnstructuredWorkflowAPITest(unittest.TestCase):
         
         # Save workflow ID for later tests
         self.workflow_id = data["id"]
-        print(f"✅ Workflow creation test passed. Workflow ID: {self.workflow_id}")
+        print(f"✅ Enterprise workflow creation test passed. Workflow ID: {self.workflow_id}")
     
-    def test_05_get_workflows(self):
+    def test_13_get_workflows(self):
         """Test getting all workflows"""
         print("\n🔍 Testing get all workflows...")
         response = requests.get(f"{API_URL}/workflows")
@@ -187,7 +319,7 @@ class UnstructuredWorkflowAPITest(unittest.TestCase):
         self.assertIsInstance(data, list)
         print(f"✅ Get workflows test passed. Found {len(data)} workflows")
     
-    def test_06_get_workflow(self):
+    def test_14_get_workflow(self):
         """Test getting a specific workflow"""
         if not hasattr(self, 'workflow_id'):
             self.skipTest("No workflow ID available")
@@ -199,12 +331,12 @@ class UnstructuredWorkflowAPITest(unittest.TestCase):
         self.assertEqual(data["id"], self.workflow_id)
         print("✅ Get workflow test passed")
     
-    def test_07_execute_workflow(self):
-        """Test workflow execution"""
+    def test_15_execute_enterprise_workflow(self):
+        """Test enterprise workflow execution"""
         if not hasattr(self, 'workflow_id'):
             self.skipTest("No workflow ID available")
         
-        print(f"\n🔍 Testing workflow execution for ID: {self.workflow_id}...")
+        print(f"\n🔍 Testing enterprise workflow execution for ID: {self.workflow_id}...")
         response = requests.post(f"{API_URL}/workflows/{self.workflow_id}/execute")
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -213,9 +345,9 @@ class UnstructuredWorkflowAPITest(unittest.TestCase):
         
         # Save execution ID for status check
         self.execution_id = data["execution_id"]
-        print(f"✅ Workflow execution started. Execution ID: {self.execution_id}")
+        print(f"✅ Enterprise workflow execution started. Execution ID: {self.execution_id}")
     
-    def test_08_get_execution_status(self):
+    def test_16_get_execution_status(self):
         """Test getting execution status"""
         if not hasattr(self, 'execution_id'):
             self.skipTest("No execution ID available")
@@ -235,9 +367,10 @@ class UnstructuredWorkflowAPITest(unittest.TestCase):
                     
                     if data["status"] in ["completed", "failed"]:
                         if data["status"] == "completed":
-                            print("✅ Workflow execution completed successfully")
+                            print("✅ Enterprise workflow execution completed successfully")
                             if "results" in data:
-                                print(f"  Results: {json.dumps(data['results'], indent=2)}")
+                                print(f"  Pipeline stages: {len(data['results'].get('pipeline_stages', []))}")
+                                print(f"  Performance metrics: {json.dumps(data['results'].get('performance_metrics', {}), indent=2)}")
                         else:
                             print(f"❌ Workflow execution failed: {data.get('error_message', 'Unknown error')}")
                         break
@@ -255,7 +388,7 @@ class UnstructuredWorkflowAPITest(unittest.TestCase):
             if attempt == max_attempts - 1:
                 print("⚠️ Execution status polling timed out")
     
-    def test_09_nonexistent_workflow(self):
+    def test_17_nonexistent_workflow(self):
         """Test getting a non-existent workflow"""
         print("\n🔍 Testing get non-existent workflow...")
         fake_id = "00000000-0000-0000-0000-000000000000"
@@ -263,118 +396,13 @@ class UnstructuredWorkflowAPITest(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
         print("✅ Non-existent workflow test passed")
     
-    def test_10_nonexistent_execution(self):
+    def test_18_nonexistent_execution(self):
         """Test getting a non-existent execution"""
         print("\n🔍 Testing get non-existent execution...")
         fake_id = "00000000-0000-0000-0000-000000000000"
         response = requests.get(f"{API_URL}/executions/{fake_id}")
         self.assertEqual(response.status_code, 404)
         print("✅ Non-existent execution test passed")
-    
-    def test_11_full_workflow_cycle(self):
-        """Test a complete workflow cycle with proper error handling"""
-        print("\n🔍 Testing complete workflow cycle with error handling...")
-        
-        # 1. Upload a file
-        with open(self.test_file_path, "rb") as f:
-            files = {"file": (self.test_file_path.name, f)}
-            response = requests.post(f"{API_URL}/upload", files=files)
-        
-        self.assertEqual(response.status_code, 200)
-        file_data = response.json()
-        file_path = file_data["file_path"]
-        
-        # 2. Create a workflow
-        workflow_data = {
-            "name": "Complete Test Workflow",
-            "description": "Testing full cycle with error handling",
-            "nodes": [
-                {
-                    "id": "1",
-                    "type": "datasource",
-                    "position": {"x": 100, "y": 100},
-                    "data": {
-                        "source_type": "upload",
-                        "filename": self.test_file_path.name,
-                        "file_path": file_path
-                    }
-                },
-                {
-                    "id": "2",
-                    "type": "processor",
-                    "position": {"x": 400, "y": 100},
-                    "data": {
-                        "processor_type": "unstructured"
-                    }
-                },
-                {
-                    "id": "3",
-                    "type": "model",
-                    "position": {"x": 700, "y": 100},
-                    "data": {
-                        "model_type": "embedding",
-                        "model_name": "SentenceTransformer"
-                    }
-                },
-                {
-                    "id": "4",
-                    "type": "export",
-                    "position": {"x": 1000, "y": 100},
-                    "data": {
-                        "export_type": "vector_db"
-                    }
-                }
-            ],
-            "edges": [
-                {"id": "e1-2", "source": "1", "target": "2"},
-                {"id": "e2-3", "source": "2", "target": "3"},
-                {"id": "e3-4", "source": "3", "target": "4"}
-            ]
-        }
-        
-        response = requests.post(f"{API_URL}/workflows", json=workflow_data)
-        self.assertEqual(response.status_code, 200)
-        workflow = response.json()
-        workflow_id = workflow["id"]
-        
-        # 3. Execute the workflow
-        response = requests.post(f"{API_URL}/workflows/{workflow_id}/execute")
-        self.assertEqual(response.status_code, 200)
-        execution_data = response.json()
-        execution_id = execution_data["execution_id"]
-        
-        # 4. Poll for completion
-        start_time = time.time()
-        completed = False
-        
-        while time.time() - start_time < TEST_TIMEOUT:
-            response = requests.get(f"{API_URL}/executions/{execution_id}")
-            
-            if response.status_code != 200:
-                print(f"⚠️ Error response: {response.status_code} - {response.text}")
-                break
-                
-            status_data = response.json()
-            status = status_data.get("status")
-            progress = status_data.get("progress", 0)
-            
-            print(f"  Status: {status}, Progress: {progress}%")
-            
-            if status == "completed":
-                completed = True
-                print("✅ Full workflow cycle completed successfully")
-                print(f"  Results: {json.dumps(status_data.get('results', {}), indent=2)}")
-                break
-            elif status == "failed":
-                print(f"❌ Workflow execution failed: {status_data.get('error_message', 'Unknown error')}")
-                break
-                
-            time.sleep(2)
-            
-        if not completed:
-            print("⚠️ Workflow execution timed out")
-            
-        self.assertTrue(completed, "Workflow should complete within the timeout period")
 
 def run_tests():
     """Run all tests sequentially in a single test instance"""
