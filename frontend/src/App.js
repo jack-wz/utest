@@ -126,6 +126,7 @@ function App() {
             <Route path="/results" element={<ResultsPage />} />
             <Route path="/results/:executionId" element={<ResultsPage />} />
             <Route path="/comparison" element={<ComparisonPage />} />
+            <Route path="/document/:documentId" element={<DocumentVisualizationPage />} />
           </Routes>
         </div>
         <ToastContainer position="bottom-right" />
