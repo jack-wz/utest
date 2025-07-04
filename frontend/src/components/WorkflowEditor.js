@@ -339,20 +339,6 @@ function WorkflowEditor() {
     })));
   }, [handleFileUpload]);
 
-  const onEdgesChange = useCallback(
-    (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
-    [setEdges]
-  );
-
-  const onConnect = useCallback(
-    (connection) => setEdges((eds) => addEdge({ 
-      ...connection, 
-      id: uuidv4(),
-      animated: true
-    }, eds)),
-    [setEdges]
-  );
-
   const addNode = (type) => {
     const newNode = {
       id: uuidv4(),
