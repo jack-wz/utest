@@ -125,6 +125,16 @@ const CustomNode = ({ data, id, type }) => {
               <div><strong>类型:</strong> {data.source_type || '文件上传'}</div>
               <div><strong>策略:</strong> {data.processing_strategy || 'AUTO'}</div>
               {data.filename && <div><strong>文件:</strong> {data.filename}</div>}
+              {data.elements_count && <div><strong>元素:</strong> {data.elements_count} 个</div>}
+              {data.metadata_extracted && <div className="text-green-600"><strong>✓ 元数据已提取</strong></div>}
+              {data.visualization_available && (
+                <button 
+                  onClick={() => navigate(`/document/${data.document_id}`)}
+                  className="mt-1 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
+                >
+                  查看可视化
+                </button>
+              )}
             </>
           )}
           
