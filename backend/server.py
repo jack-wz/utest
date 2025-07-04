@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -17,6 +17,10 @@ from concurrent.futures import ThreadPoolExecutor
 import shutil
 import random
 import time
+import hashlib
+import base64
+from io import BytesIO
+import zipfile
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
